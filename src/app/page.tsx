@@ -1,10 +1,5 @@
-export default function Home() {
-  
-  window.location.href = "/chat";
+import { redirect } from "next/navigation";
 
-  return (
-    <main>
-      Home Page
-    </main>
-  );
+export default function Home() {
+  redirect("/chat");
 }

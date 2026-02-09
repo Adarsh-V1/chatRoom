@@ -45,4 +45,4 @@ const ChatForm = ({ username, room }: ChatFormProps) => {
   );
 };
 
-export { ChatForm }
+export { ChatForm };

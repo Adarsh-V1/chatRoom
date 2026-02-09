@@ -1,10 +1,10 @@
-'use client'
+"use client";
 
-import React from 'react'
+import React from "react";
 
-import { useForm } from 'react-hook-form'
-import { useMutation, useQuery } from 'convex/react'
-import { api } from '@/convex/_generated/api'
+import { useQuery } from "convex/react";
+import { api } from "@/convex/_generated/api";
+import type { Doc } from "@/convex/_generated/dataModel";
 
 
 interface ChatFeedProps {
@@ -13,25 +13,53 @@ interface ChatFeedProps {
 }
 
 const ChatFeed = ({ currentUser, room }: ChatFeedProps) => {
-  const feed = useQuery(api.chats.getChats, { room })
+  const feed = useQuery(api.chats.getChats, { room });
 
   return (
-    <div className="flex flex-col h-[400px] w-full max-w-md mx-auto bg-white border rounded-lg shadow overflow-y-auto p-4 mb-2">
+    <div className="mt-1 flex h-[60vh] w-full flex-col overflow-y-auto rounded-2xl border border-white/10 bg-slate-950/30 p-4 shadow">
       {feed && feed.length > 0 ? (
-        feed.map((chat) => (
-          <div
-            className={`self-start bg-blue-100 text-gray-900 px-4 py-2 rounded-2xl mb-2 max-w-[80%] shadow-sm ${currentUser === chat.username ? 'bg-green-100 self-end' : ''}`}
-            key={chat._id}
-          >
-            <span className="font-semibold text-blue-700 mr-2">{chat.username}:</span>
-            <span>{chat.message}</span>
-          </div>
-        ))
+        feed.map((chat: Doc<"chats">) => {
+          const isMe = currentUser === chat.username;
+          return (
+            <div
+              className={"mb-2 flex items-start " + (isMe ? "justify-end" : "justify-start")}
+              key={chat._id}
+            >
+              <div
+                className={
+                  "max-w-[85%] rounded-2xl border border-white/10 px-4 py-2 shadow-sm " +
+                  (isMe
+                    ? "bg-indigo-500/20 text-slate-50"
+                    : "bg-white/5 text-slate-100")
+                }
+              >
+                <div className="flex items-baseline justify-between gap-4">
+                  <span className="text-xs font-semibold tracking-wide text-slate-300">
+                    {chat.username}
+                  </span>
+                  {typeof chat._creationTime === "number" ? (
+                    <span className="text-[10px] text-slate-400">
+                      {new Date(chat._creationTime).toLocaleTimeString([], {
+                        hour: "2-digit",
+                        minute: "2-digit",
+                      })}
+                    </span>
+                  ) : null}
+                </div>
+                <div className="mt-1 whitespace-pre-wrap wrap-break-word text-sm leading-relaxed">
+                  {chat.message}
+                </div>
+              </div>
+            </div>
+          );
+        })
       ) : (
-        <div className="text-gray-400 text-center my-auto">No messages yet.</div>
+        <div className="my-auto text-center text-sm text-slate-300">
+          No messages yet.
+        </div>
       )}
     </div>
-  )
+  );
 }
 
 export { ChatFeed }

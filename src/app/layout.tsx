@@ -23,12 +23,14 @@ export default function RootLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  const convexUrl = process.env.NEXT_PUBLIC_CONVEX_URL;
+
   return (
     <html lang="en">
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
-        <ConvexClientProvider>
+        <ConvexClientProvider convexUrl={convexUrl}>
           {children}
         </ConvexClientProvider>
       </body>

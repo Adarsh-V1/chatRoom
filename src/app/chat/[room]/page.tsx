@@ -1,5 +1,11 @@
 import { notFound } from "next/navigation";
-import { RoomChatClient } from "@/src/componnets/chat/RoomChatClient";
+import dynamic from "next/dynamic";
+
+const RoomChatClient = dynamic(
+  () =>
+    import("@/src/componnets/chat/RoomChatClient").then((m) => m.RoomChatClient),
+  { ssr: false }
+);
 
 export default function ChatRoomPage({ params }: { params: { room: string } }) {
   const room = params.room;

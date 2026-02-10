@@ -182,7 +182,9 @@ export function GroupsClient() {
           <section className="rounded-2xl border theme-panel p-4 shadow backdrop-blur">
             <div className="text-sm font-semibold theme-text">Invites</div>
             <div className="mt-3 grid gap-2">
-              {invites.map((invite) => (
+              {(invites ?? []).filter(
+                (invite): invite is NonNullable<typeof invite> => Boolean(invite)
+              ).map((invite) => (
                 <div
                   key={invite._id}
                   className="flex flex-wrap items-center justify-between gap-3 rounded-xl border px-3 py-2 theme-chip"

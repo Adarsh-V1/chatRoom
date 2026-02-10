@@ -227,7 +227,7 @@ export default function CallRoomPage() {
         await pc.setLocalDescription(offer);
         sentOfferRef.current = true;
         await sendSignal({
-          token: auth.token,
+          token: auth.token!,
           roomId,
           type: "offer",
           payload: JSON.stringify(offer),

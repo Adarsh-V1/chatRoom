@@ -2,8 +2,8 @@
 
 import dynamic from "next/dynamic";
 
-const UsersClient = dynamic(
-  () => import("@/src/features/users/UsersClient").then((m) => m.UsersClient),
+const SettingsClient = dynamic(
+  () => import("@/src/features/settings/SettingsClient").then((m) => m.SettingsClient),
   {
     ssr: false,
     loading: () => (
@@ -18,6 +18,6 @@ const UsersClient = dynamic(
   }
 );
 
-export function UsersClientOnly() {
-  return <UsersClient />;
+export function SettingsClientOnly() {
+  return <SettingsClient />;
 }

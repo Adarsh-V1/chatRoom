@@ -54,21 +54,21 @@ export function VideoGrid({
 
   return (
     <div className={gridClasses}>
-      <div className="relative overflow-hidden rounded-2xl border border-white/10 bg-slate-950/60">
-        <div className="absolute left-3 top-3 z-10 rounded-full border border-white/10 bg-slate-950/70 px-3 py-1.5 text-xs font-semibold text-slate-50">
+      <div className="call-video-shell relative overflow-hidden rounded-2xl border">
+        <div className="call-video-label absolute left-3 top-3 z-10 rounded-full border px-3 py-1.5 text-xs font-semibold">
           {remoteLabel ?? "Peer"}
         </div>
         {remoteStream ? (
           <video ref={remoteRef} autoPlay playsInline className="h-full w-full object-cover" />
         ) : (
-          <div className="flex h-full w-full items-center justify-center text-sm text-slate-300">
+          <div className="theme-muted flex h-full w-full items-center justify-center text-sm">
             Waiting for the other person…
           </div>
         )}
 
         {hasRemote && pipMode ? (
-          <div className="absolute bottom-3 right-3 h-28 w-20 overflow-hidden rounded-xl border border-white/10 bg-slate-950/80 shadow-lg sm:h-36 sm:w-28">
-            <div className="absolute left-2 top-2 z-10 rounded-full border border-white/10 bg-slate-950/70 px-2 py-1 text-[10px] font-semibold text-slate-50">
+          <div className="call-video-pip absolute bottom-3 right-3 h-28 w-20 overflow-hidden rounded-xl border shadow-lg sm:h-36 sm:w-28">
+            <div className="call-video-label absolute left-2 top-2 z-10 rounded-full border px-2 py-1 text-[10px] font-semibold">
               {localLabel ?? "You"}
             </div>
             {localStream ? (
@@ -83,7 +83,7 @@ export function VideoGrid({
                 }
               />
             ) : (
-              <div className="flex h-full w-full items-center justify-center text-[11px] text-slate-300">
+              <div className="theme-muted flex h-full w-full items-center justify-center text-[11px]">
                 Starting…
               </div>
             )}
@@ -92,8 +92,8 @@ export function VideoGrid({
       </div>
 
       {!hasRemote || !pipMode ? (
-        <div className="relative overflow-hidden rounded-2xl border border-white/10 bg-slate-950/60">
-          <div className="absolute left-3 top-3 z-10 rounded-full border border-white/10 bg-slate-950/70 px-3 py-1.5 text-xs font-semibold text-slate-50">
+        <div className="call-video-shell relative overflow-hidden rounded-2xl border">
+          <div className="call-video-label absolute left-3 top-3 z-10 rounded-full border px-3 py-1.5 text-xs font-semibold">
             {localLabel ?? "You"}
           </div>
           {localStream ? (
@@ -108,7 +108,7 @@ export function VideoGrid({
               }
             />
           ) : (
-            <div className="flex h-full w-full items-center justify-center text-sm text-slate-300">
+            <div className="theme-muted flex h-full w-full items-center justify-center text-sm">
               Starting camera…
             </div>
           )}

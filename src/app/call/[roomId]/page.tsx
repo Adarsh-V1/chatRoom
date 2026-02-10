@@ -659,25 +659,25 @@ export default function CallRoomPage() {
 
   if (!roomId) {
     return (
-      <main className="min-h-screen w-full bg-slate-950 p-4 sm:p-6">
+      <main className="theme-page min-h-screen w-full p-4 sm:p-6">
         <div className="mx-auto flex min-h-[calc(100vh-2rem)] w-full max-w-md items-center justify-center">
-          <div className="w-full rounded-2xl border border-white/10 bg-slate-950/50 p-8 shadow backdrop-blur">
+          <div className="theme-panel w-full rounded-2xl border p-8 shadow backdrop-blur">
             {autoStartError ? (
               <>
-                <div className="text-base font-semibold text-slate-100">Could not start call</div>
-                <p className="mt-2 text-sm text-slate-300">{autoStartError}</p>
+                <div className="theme-text text-base font-semibold">Could not start call</div>
+                <p className="theme-muted mt-2 text-sm">{autoStartError}</p>
               </>
             ) : auth.isReady && auth.isLoggedIn ? (
               <>
-                <div className="text-base font-semibold text-slate-100">
+                <div className="theme-text text-base font-semibold">
                   Starting a call in general…
                 </div>
-                <p className="mt-2 text-sm text-slate-300">Hang tight while we create the room.</p>
+                <p className="theme-muted mt-2 text-sm">Hang tight while we create the room.</p>
               </>
             ) : (
               <>
-                <div className="text-base font-semibold text-slate-100">Missing room id</div>
-                <p className="mt-2 text-sm text-slate-300">
+                <div className="theme-text text-base font-semibold">Missing room id</div>
+                <p className="theme-muted mt-2 text-sm">
                   Return to chat and start the call again.
                 </p>
               </>
@@ -697,10 +697,10 @@ export default function CallRoomPage() {
 
   if (!auth.isReady) {
     return (
-      <main className="min-h-screen w-full bg-slate-950 p-4 sm:p-6">
+      <main className="theme-page min-h-screen w-full p-4 sm:p-6">
         <div className="mx-auto flex min-h-[calc(100vh-2rem)] w-full max-w-md items-center justify-center">
-          <div className="w-full rounded-2xl border border-white/10 bg-slate-950/50 p-8 shadow backdrop-blur">
-            <div className="text-base font-semibold text-slate-100">Checking session…</div>
+          <div className="theme-panel w-full rounded-2xl border p-8 shadow backdrop-blur">
+            <div className="theme-text text-base font-semibold">Checking session…</div>
           </div>
         </div>
       </main>
@@ -709,11 +709,11 @@ export default function CallRoomPage() {
 
   if (!auth.isLoggedIn) {
     return (
-      <main className="min-h-screen w-full bg-slate-950 p-4 sm:p-6">
+      <main className="theme-page min-h-screen w-full p-4 sm:p-6">
         <div className="mx-auto flex min-h-[calc(100vh-2rem)] w-full max-w-md items-center justify-center">
-          <div className="w-full rounded-2xl border border-white/10 bg-slate-950/50 p-8 shadow backdrop-blur">
-            <div className="text-base font-semibold text-slate-100">Sign in required</div>
-            <p className="mt-2 text-sm text-slate-300">
+          <div className="theme-panel w-full rounded-2xl border p-8 shadow backdrop-blur">
+            <div className="theme-text text-base font-semibold">Sign in required</div>
+            <p className="theme-muted mt-2 text-sm">
               Open the chat first to sign in, then rejoin.
             </p>
             <button
@@ -731,11 +731,11 @@ export default function CallRoomPage() {
 
   if (call === null) {
     return (
-      <main className="min-h-screen w-full bg-slate-950 p-4 sm:p-6">
+      <main className="theme-page min-h-screen w-full p-4 sm:p-6">
         <div className="mx-auto flex min-h-[calc(100vh-2rem)] w-full max-w-md items-center justify-center">
-          <div className="w-full rounded-2xl border border-white/10 bg-slate-950/50 p-8 shadow backdrop-blur">
-            <div className="text-base font-semibold text-slate-100">Call not found</div>
-            <p className="mt-2 text-sm text-slate-300">This room id is not active.</p>
+          <div className="theme-panel w-full rounded-2xl border p-8 shadow backdrop-blur">
+            <div className="theme-text text-base font-semibold">Call not found</div>
+            <p className="theme-muted mt-2 text-sm">This room id is not active.</p>
             <button
               type="button"
               onClick={() => router.push("/chat")}
@@ -751,11 +751,11 @@ export default function CallRoomPage() {
 
   if (call && call.status === "ended") {
     return (
-      <main className="min-h-screen w-full bg-slate-950 p-4 sm:p-6">
+      <main className="theme-page min-h-screen w-full p-4 sm:p-6">
         <div className="mx-auto flex min-h-[calc(100vh-2rem)] w-full max-w-md items-center justify-center">
-          <div className="w-full rounded-2xl border border-white/10 bg-slate-950/50 p-8 shadow backdrop-blur">
-            <div className="text-base font-semibold text-slate-100">Call ended</div>
-            <p className="mt-2 text-sm text-slate-300">This call is no longer active.</p>
+          <div className="theme-panel w-full rounded-2xl border p-8 shadow backdrop-blur">
+            <div className="theme-text text-base font-semibold">Call ended</div>
+            <p className="theme-muted mt-2 text-sm">This call is no longer active.</p>
             <button
               type="button"
               onClick={() => router.push("/chat")}
@@ -771,11 +771,11 @@ export default function CallRoomPage() {
 
   if (error) {
     return (
-      <main className="min-h-screen w-full bg-slate-950 p-4 sm:p-6">
+      <main className="theme-page min-h-screen w-full p-4 sm:p-6">
         <div className="mx-auto flex min-h-[calc(100vh-2rem)] w-full max-w-md items-center justify-center">
-          <div className="w-full rounded-2xl border border-white/10 bg-slate-950/50 p-8 shadow backdrop-blur">
-            <div className="text-base font-semibold text-slate-100">Could not join call</div>
-            <p className="mt-2 text-sm text-slate-300">{error}</p>
+          <div className="theme-panel w-full rounded-2xl border p-8 shadow backdrop-blur">
+            <div className="theme-text text-base font-semibold">Could not join call</div>
+            <p className="theme-muted mt-2 text-sm">{error}</p>
             <button
               type="button"
               onClick={() => router.push("/chat")}
@@ -791,13 +791,13 @@ export default function CallRoomPage() {
 
   if (mediaError) {
     return (
-      <main className="min-h-screen w-full bg-slate-950 p-4 sm:p-6">
+      <main className="theme-page min-h-screen w-full p-4 sm:p-6">
         <div className="mx-auto flex min-h-[calc(100vh-2rem)] w-full max-w-md items-center justify-center">
-          <div className="w-full rounded-2xl border border-white/10 bg-slate-950/50 p-8 shadow backdrop-blur">
-            <div className="text-base font-semibold text-slate-100">
+          <div className="theme-panel w-full rounded-2xl border p-8 shadow backdrop-blur">
+            <div className="theme-text text-base font-semibold">
               Camera or microphone blocked
             </div>
-            <p className="mt-2 text-sm text-slate-300">{mediaError}</p>
+            <p className="theme-muted mt-2 text-sm">{mediaError}</p>
             <button
               type="button"
               onClick={() => router.push("/chat")}
@@ -813,10 +813,10 @@ export default function CallRoomPage() {
 
   if (!localStream || isConnecting) {
     return (
-      <main className="min-h-screen w-full bg-slate-950 p-4 sm:p-6">
+      <main className="theme-page min-h-screen w-full p-4 sm:p-6">
         <div className="mx-auto flex min-h-[calc(100vh-2rem)] w-full max-w-md items-center justify-center">
-          <div className="w-full rounded-2xl border border-white/10 bg-slate-950/50 p-8 shadow backdrop-blur">
-            <div className="text-base font-semibold text-slate-100">Connecting…</div>
+          <div className="theme-panel w-full rounded-2xl border p-8 shadow backdrop-blur">
+            <div className="theme-text text-base font-semibold">Connecting…</div>
           </div>
         </div>
       </main>
@@ -824,25 +824,25 @@ export default function CallRoomPage() {
   }
 
   return (
-    <main className="min-h-screen w-full bg-slate-950 p-3 sm:p-6">
+    <main className="theme-page min-h-screen w-full p-3 sm:p-6">
       <div className="mx-auto flex h-[calc(100vh-1.5rem)] w-full max-w-6xl flex-col gap-3 sm:h-[calc(100vh-3rem)] sm:gap-4">
-        <div className="flex-1 overflow-hidden rounded-2xl border border-white/10 bg-slate-950/50 p-2 sm:p-3 shadow backdrop-blur">
+        <div className="theme-panel flex-1 overflow-hidden rounded-2xl border p-2 shadow backdrop-blur sm:p-3">
           <div className="flex h-full flex-col">
             <header className="flex items-center justify-between gap-3 px-1 pb-2">
               <div className="min-w-0">
-                <div className="text-xs font-semibold tracking-widest text-slate-300/80">IN CALL</div>
-                <div className="truncate text-base font-semibold text-slate-100">Room: {roomId}</div>
-                <div className="mt-1 text-xs font-semibold text-slate-300">
+                <div className="theme-faint text-xs font-semibold tracking-widest">IN CALL</div>
+                <div className="theme-text truncate text-base font-semibold">Room: {roomId}</div>
+                <div className="theme-muted mt-1 text-xs font-semibold">
                   Status: {connectionState}
                 </div>
-                <div className="mt-1 text-xs font-semibold text-slate-300">
+                <div className="theme-muted mt-1 text-xs font-semibold">
                   Duration: {durationLabel}
                 </div>
               </div>
               <button
                 type="button"
                 onClick={() => router.push("/chat")}
-                className="rounded-xl border border-white/10 bg-white/5 px-4 py-2 text-sm font-semibold text-slate-100 hover:bg-white/10 focus:outline-none focus:ring-2 focus:ring-cyan-400/40 active:scale-[0.98]"
+                className="theme-chip rounded-xl border px-4 py-2 text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-cyan-400/40 active:scale-[0.98]"
               >
                 Back
               </button>
@@ -850,13 +850,13 @@ export default function CallRoomPage() {
 
             {audioOutputs.length > 0 ? (
               <div className="mb-2 flex flex-wrap items-center gap-2 px-1">
-                <label className="text-xs font-semibold tracking-widest text-slate-300/80">
+                <label className="theme-faint text-xs font-semibold tracking-widest">
                   SPEAKER
                 </label>
                 <select
                   value={selectedOutputId}
                   onChange={(e) => setSelectedOutputId(e.target.value)}
-                  className="rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-xs font-semibold text-slate-100 focus:outline-none focus:ring-2 focus:ring-cyan-400/40"
+                  className="theme-input rounded-xl border px-3 py-2 text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-cyan-400/40"
                 >
                   {audioOutputs.map((d) => (
                     <option key={d.deviceId} value={d.deviceId}>
@@ -945,15 +945,15 @@ export default function CallRoomPage() {
             </div>
 
             {chatOpen && call?.conversationId ? (
-              <div className="absolute right-3 top-16 z-20 h-[70vh] w-[90vw] max-w-sm rounded-2xl border border-white/10 bg-slate-950/70 p-3 shadow-xl backdrop-blur sm:right-6 sm:top-20">
+              <div className="theme-overlay absolute right-3 top-16 z-20 h-[70vh] w-[90vw] max-w-sm rounded-2xl border p-3 shadow-xl backdrop-blur sm:right-6 sm:top-20">
                 <div className="mb-2 flex items-center justify-between">
-                  <div className="text-xs font-semibold tracking-widest text-slate-300/80">
+                  <div className="theme-faint text-xs font-semibold tracking-widest">
                     CHAT
                   </div>
                   <button
                     type="button"
                     onClick={() => setChatOpen(false)}
-                    className="rounded-lg border border-white/10 bg-white/5 px-2 py-1 text-[11px] font-semibold text-slate-100"
+                    className="theme-chip rounded-lg border px-2 py-1 text-[11px] font-semibold"
                   >
                     Close
                   </button>

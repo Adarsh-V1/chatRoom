@@ -3,6 +3,7 @@
 import type { ReactNode } from "react";
 import { usePathname } from "next/navigation";
 import { AppNav } from "./AppNav";
+import { SettingsSync } from "@/src/features/settings/SettingsSync";
 
 interface AppShellProps {
   children: ReactNode;
@@ -17,8 +18,9 @@ export function AppShell({ children }: AppShellProps) {
   );
 
   return (
-    <div className={showBottomNav ? "pb-24 md:pb-0" : ""}>
+    <div>
       <AppNav pathname={pathname} showBottomNav={showBottomNav} />
+      <SettingsSync />
       {children}
     </div>
   );

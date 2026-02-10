@@ -22,30 +22,6 @@ const navItems = [
     ),
   },
   {
-    label: "Users",
-    href: "/users",
-    icon: (
-      <svg viewBox="0 0 24 24" className="h-5 w-5" aria-hidden="true">
-        <path
-          d="M16 11a4 4 0 1 0-4-4 4 4 0 0 0 4 4Zm-8 8a6 6 0 0 1 12 0"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="2"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-        />
-        <path
-          d="M7 11a3 3 0 1 1 3-3 3 3 0 0 1-3 3Zm-4 8a5 5 0 0 1 5-5"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="2"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-        />
-      </svg>
-    ),
-  },
-  {
     label: "Settings",
     href: "/settings",
     icon: (
@@ -55,6 +31,22 @@ const navItems = [
           fill="none"
           stroke="currentColor"
           strokeWidth="2"
+          strokeLinejoin="round"
+        />
+      </svg>
+    ),
+  },
+  {
+    label: "Profile",
+    href: "/profile",
+    icon: (
+      <svg viewBox="0 0 24 24" className="h-5 w-5" aria-hidden="true">
+        <path
+          d="M12 12a4 4 0 1 0-4-4 4 4 0 0 0 4 4Zm-7 8a7 7 0 0 1 14 0"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2"
+          strokeLinecap="round"
           strokeLinejoin="round"
         />
       </svg>
@@ -110,8 +102,8 @@ export function AppNav({ pathname, showBottomNav }: AppNavProps) {
       </header>
 
       {showBottomNav ? (
-        <nav className="fixed bottom-3 left-1/2 z-40 w-[min(94vw,420px)] -translate-x-1/2 md:hidden">
-          <div className="flex items-center justify-between gap-2 rounded-2xl border px-3 py-2 theme-panel backdrop-blur">
+        <nav className="sticky top-[60px] z-30 w-full border-b theme-border theme-panel backdrop-blur md:hidden">
+          <div className="mx-auto flex w-full max-w-6xl items-center gap-2 px-3 py-2">
             {navItems.map((item) => {
               const isActive = isActiveRoute(pathname, item.href);
               return (
@@ -119,7 +111,7 @@ export function AppNav({ pathname, showBottomNav }: AppNavProps) {
                   key={item.href}
                   href={item.href}
                   aria-current={isActive ? "page" : undefined}
-                  className={`flex min-w-0 flex-1 flex-col items-center gap-1 rounded-xl border px-2 py-2 text-[0.7rem] font-semibold uppercase tracking-[0.2em] ${
+                  className={`flex min-w-0 flex-1 items-center justify-center gap-2 rounded-xl border px-2 py-2 text-[0.7rem] font-semibold uppercase tracking-[0.2em] ${
                     isActive
                       ? "theme-panel-strong"
                       : "theme-chip opacity-80 hover:opacity-100"

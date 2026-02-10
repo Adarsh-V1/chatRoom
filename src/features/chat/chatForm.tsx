@@ -2,7 +2,7 @@
 
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { useForm } from "react-hook-form";
-import { useMutation } from "convex/react";
+import { useMutation, useQuery } from "convex/react";
 import { Paperclip, Smile, X } from "lucide-react";
 import { api } from "@/convex/_generated/api";
 import type { Id } from "@/convex/_generated/dataModel";
@@ -21,6 +21,7 @@ const ChatForm = ({ token, room }: ChatFormProps) => {
   const addFileChat = useMutation(api.chats.addFileChat);
   const generateUploadUrl = useMutation(api.chats.generateUploadUrl);
   const setTyping = useMutation(api.typing.setTyping);
+  const settings = useQuery(api.settings.getMySettings, token ? { token } : "skip");
 
   const [file, setFile] = useState<File | null>(null);
   const [isUploading, setIsUploading] = useState(false);
@@ -47,6 +48,9 @@ const ChatForm = ({ token, room }: ChatFormProps) => {
   const emojiList = ["😀", "😂", "😍", "👍", "🙏", "🔥", "🎉", "✅", "💡", "🚀"];
 
   useEffect(() => {
+    if (settings && settings.typingIndicator === false) {
+      return;
+    }
     if (!token || !room) return;
 
     const trimmed = (message ?? "").trim();
@@ -69,14 +73,17 @@ const ChatForm = ({ token, room }: ChatFormProps) => {
     return () => {
       if (typingTimerRef.current) clearTimeout(typingTimerRef.current);
     };
-  }, [message, room, setTyping, token]);
+  }, [message, room, setTyping, token, settings]);
 
   useEffect(() => {
+    if (settings && settings.typingIndicator === false) {
+      return;
+    }
     return () => {
       if (!token || !room) return;
       void setTyping({ token, room, isTyping: false });
     };
-  }, [room, setTyping, token]);
+  }, [room, setTyping, token, settings]);
 
   const onSubmit = async (data: ChatFormValues) => {
     const trimmed = (data.message ?? "").trim();
@@ -120,7 +127,7 @@ const ChatForm = ({ token, room }: ChatFormProps) => {
 
     reset({ message: "" });
     setEmojiOpen(false);
-    if (token && room) {
+    if (token && room && (!settings || settings.typingIndicator !== false)) {
       void setTyping({ token, room, isTyping: false });
     }
   };
@@ -143,7 +150,7 @@ const ChatForm = ({ token, room }: ChatFormProps) => {
       />
       <div className="flex min-w-0 flex-1 items-center gap-2">
         {file ? (
-          <div className="inline-flex max-w-[12rem] items-center gap-2 rounded-xl border px-2 py-1 text-[11px] font-semibold theme-chip">
+          <div className="inline-flex max-w-48 items-center gap-2 rounded-xl border px-2 py-1 text-[11px] font-semibold theme-chip">
             <span className="truncate">{file.name}</span>
             <button
               type="button"
@@ -163,6 +170,7 @@ const ChatForm = ({ token, room }: ChatFormProps) => {
           {...register("message")}
           className="min-w-0 flex-1 rounded-xl border px-4 py-3 text-base focus:outline-none focus:ring-2 focus:ring-cyan-400/40 theme-input"
           onBlur={() => {
+            if (settings && settings.typingIndicator === false) return;
             if (!token || !room) return;
             void setTyping({ token, room, isTyping: false });
           }}

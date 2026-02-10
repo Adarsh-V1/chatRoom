@@ -47,8 +47,24 @@ export default defineSchema({
   userSettings: defineTable({
     userId: v.id("users"),
     focusMode: v.boolean(),
+    notificationSound: v.optional(v.boolean()),
+    desktopNotifications: v.optional(v.boolean()),
+    messageDensity: v.optional(v.union(v.literal("comfortable"), v.literal("compact"))),
+    fontScale: v.optional(v.number()),
+    readReceipts: v.optional(v.boolean()),
+    typingIndicator: v.optional(v.boolean()),
+    reducedMotion: v.optional(v.boolean()),
+    highContrast: v.optional(v.boolean()),
+    autoPlayGifs: v.optional(v.boolean()),
+    autoDownloadFiles: v.optional(v.boolean()),
     updatedAt: v.number(),
   }).index("by_userId", ["userId"]),
+
+  mutedUsers: defineTable({
+    userId: v.id("users"),
+    otherNameLower: v.string(),
+    createdAt: v.number(),
+  }).index("by_user_otherNameLower", ["userId", "otherNameLower"]),
 
   // Priority rooms (chat strings) per user.
   chatPriorities: defineTable({

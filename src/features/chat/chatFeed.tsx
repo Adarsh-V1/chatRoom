@@ -22,19 +22,19 @@ const ChatFeed = ({ currentUser, room, token, isPriority }: ChatFeedProps) => {
   const scrollRef = useRef<HTMLDivElement | null>(null);
 
   const settings = useQuery(api.settings.getMySettings, token ? { token } : "skip");
-  const focusMode = Boolean(settings?.focusMode);
-
-  const latestSummary = useQuery(
-    api.unread.getLatestSummary,
-    token ? { token, room } : "skip"
-  );
 
   const typingUsers = useQuery(
     api.typing.getTypingUsers,
     token ? { token, room } : "skip"
   );
 
+  const latestSummary = useQuery(
+    api.unread.getLatestSummary,
+    token ? { token, room } : "skip"
+  );
+
   const unreadInfo = useQuery(api.unread.getUnreadInfo, token ? { token, room } : "skip");
+  const mutedUsers = useQuery(api.users.getMutedUsers, token ? { token } : "skip");
   const markReadMutation = useMutation(api.unread.markRead);
   const dismissSummaryMutation = useMutation(api.unread.dismissSummary);
   const softDeleteChat = useMutation(api.chats.softDeleteChat);
@@ -46,16 +46,46 @@ const ChatFeed = ({ currentUser, room, token, isPriority }: ChatFeedProps) => {
   const [toast, setToast] = useState<string | null>(null);
   const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const lastCountRef = useRef<number>(0);
+  const lastNotifiedIdRef = useRef<string | null>(null);
+  const soundPlayedRef = useRef(0);
+
+  const messageDensity = settings?.messageDensity ?? "comfortable";
+  const fontScale = settings?.fontScale ?? 1;
+  const reducedMotion = settings?.reducedMotion ?? false;
+  const readReceipts = settings?.readReceipts ?? true;
+  const typingIndicator = settings?.typingIndicator ?? true;
+  const notificationSound = settings?.notificationSound ?? true;
+  const desktopNotifications = settings?.desktopNotifications ?? false;
+  const autoPlayGifs = settings?.autoPlayGifs ?? true;
+  const autoDownloadFiles = settings?.autoDownloadFiles ?? false;
+
+  const mutedSet = useMemo(() => {
+    return new Set((mutedUsers ?? []).map((n) => n.toLowerCase()));
+  }, [mutedUsers]);
+
+  const visibleTypingUsers = useMemo(() => {
+    if (!typingUsers) return typingUsers;
+    if (mutedSet.size === 0) return typingUsers;
+    return typingUsers.filter((user) => !mutedSet.has(user.name.toLowerCase()));
+  }, [typingUsers, mutedSet]);
 
   const shouldAutoSummarize = useMemo(() => {
     if (!token) return false;
     if (!room) return false;
     if (!unreadInfo) return false;
     if (unreadInfo.unreadCount <= 0) return false;
-    if (latestSummary) return false;
-    if (focusMode && !isPriority) return false;
+    if (!latestSummary) return false;
     return true;
-  }, [token, room, unreadInfo, latestSummary, focusMode, isPriority]);
+  }, [token, room, unreadInfo, latestSummary, isPriority]);
+
+  const filteredFeed = useMemo(() => {
+    if (!feed) return feed;
+    if (mutedSet.size === 0) return feed;
+    return feed.filter((chat) => {
+      const name = (chat.username ?? "").trim().toLowerCase();
+      return !mutedSet.has(name);
+    });
+  }, [feed, mutedSet]);
 
   useEffect(() => {
     if (!stickToBottom) return;
@@ -91,7 +121,7 @@ const ChatFeed = ({ currentUser, room, token, isPriority }: ChatFeedProps) => {
   }, []);
 
   useEffect(() => {
-    const count = feed?.length ?? 0;
+    const count = filteredFeed?.length ?? 0;
     if (count === 0) {
       lastCountRef.current = 0;
       return;
@@ -107,11 +137,51 @@ const ChatFeed = ({ currentUser, room, token, isPriority }: ChatFeedProps) => {
       return;
     }
 
-    const last = feed?.[count - 1] as unknown as { username?: string; message?: string };
+    const last = filteredFeed?.[count - 1] as unknown as {
+      _id?: string;
+      username?: string;
+      message?: string;
+    };
     if (!last || (last.username ?? "") === currentUser) {
       setStickToBottom(true);
       lastCountRef.current = count;
       return;
+    }
+
+    if (notificationSound && Date.now() - soundPlayedRef.current > 1000) {
+      soundPlayedRef.current = Date.now();
+      try {
+        const ctx = new (window.AudioContext || (window as any).webkitAudioContext)();
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.type = "sine";
+        osc.frequency.value = 880;
+        gain.gain.value = 0.04;
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+        osc.start();
+        osc.stop(ctx.currentTime + 0.08);
+      } catch {
+        // Ignore audio errors.
+      }
+    }
+
+    if (
+      desktopNotifications &&
+      typeof Notification !== "undefined" &&
+      Notification.permission === "granted" &&
+      document.hidden &&
+      last._id &&
+      lastNotifiedIdRef.current !== last._id
+    ) {
+      lastNotifiedIdRef.current = last._id;
+      try {
+        new Notification("New message", {
+          body: last.message ? `${last.username ?? "Someone"}: ${last.message}` : "New message",
+        });
+      } catch {
+        // Ignore notification errors.
+      }
     }
 
     const label = last.message ? `${last.username ?? "Someone"}: ${last.message}` : "New message";
@@ -120,15 +190,15 @@ const ChatFeed = ({ currentUser, room, token, isPriority }: ChatFeedProps) => {
     if (toastTimer.current) clearTimeout(toastTimer.current);
     toastTimer.current = setTimeout(() => setToast(null), 2800);
     lastCountRef.current = count;
-  }, [feed, currentUser]);
+  }, [filteredFeed, currentUser, desktopNotifications, notificationSound]);
 
   useEffect(() => {
-    if (!feed || feed.length === 0) return;
-    const last = feed[feed.length - 1] as unknown as { username?: string };
+    if (!filteredFeed || filteredFeed.length === 0) return;
+    const last = filteredFeed[filteredFeed.length - 1] as unknown as { username?: string };
     if ((last.username ?? "") === currentUser) {
       setStickToBottom(true);
     }
-  }, [feed, currentUser]);
+  }, [filteredFeed, currentUser]);
 
   useEffect(() => {
     if (!token) return;
@@ -159,12 +229,13 @@ const ChatFeed = ({ currentUser, room, token, isPriority }: ChatFeedProps) => {
   useEffect(() => {
     if (!token) return;
     if (!hasHandledAway) return;
-    if (!feed || feed.length === 0) return;
-    const last = feed[feed.length - 1] as unknown as { _creationTime?: number };
+    if (!readReceipts) return;
+    if (!filteredFeed || filteredFeed.length === 0) return;
+    const last = filteredFeed[filteredFeed.length - 1] as unknown as { _creationTime?: number };
     const lastCreationTime = typeof last?._creationTime === "number" ? last._creationTime : null;
     if (lastCreationTime === null) return;
     void markReadMutation({ token, room, lastReadCreationTime: lastCreationTime });
-  }, [token, room, feed, hasHandledAway, markReadMutation]);
+  }, [token, room, filteredFeed, hasHandledAway, markReadMutation, readReceipts]);
 
   return (
     <div className="min-h-0 flex-1">
@@ -189,10 +260,15 @@ const ChatFeed = ({ currentUser, room, token, isPriority }: ChatFeedProps) => {
             {toast}
           </div>
         ) : null}
-        {feed && feed.length > 0 ? (
-          <div className="mt-2 flex flex-col gap-2">
+        {filteredFeed && filteredFeed.length > 0 ? (
+          <div
+            className={
+              "mt-2 flex flex-col " +
+              (messageDensity === "compact" ? "gap-1" : "gap-2")
+            }
+          >
             <AnimatePresence initial={false}>
-              {feed.map((chat) => {
+              {filteredFeed.map((chat) => {
                 const msg = chat as unknown as ChatMessage;
                 const isMe = (msg.username ?? "") === currentUser;
                 return (
@@ -200,6 +276,11 @@ const ChatFeed = ({ currentUser, room, token, isPriority }: ChatFeedProps) => {
                     key={msg._id}
                     msg={msg}
                     isMe={isMe}
+                    density={messageDensity}
+                    fontScale={fontScale}
+                    reducedMotion={reducedMotion}
+                    autoPlayGifs={autoPlayGifs}
+                    autoDownloadFiles={autoDownloadFiles}
                     isRevealed={revealedIds.has(msg._id)}
                     onReveal={(id) => {
                       setRevealedIds((prev) => {
@@ -216,11 +297,11 @@ const ChatFeed = ({ currentUser, room, token, isPriority }: ChatFeedProps) => {
                 );
               })}
             </AnimatePresence>
-            {typingUsers && typingUsers.length > 0 ? (
+            {typingIndicator && visibleTypingUsers && visibleTypingUsers.length > 0 ? (
               <div className="px-2 text-sm font-semibold theme-faint">
-                {typingUsers.length === 1
-                  ? `${typingUsers[0].name} is typing…`
-                  : `${typingUsers.map((u) => u.name).join(", ")} are typing…`}
+                {visibleTypingUsers.length === 1
+                  ? `${visibleTypingUsers[0].name} is typing…`
+                  : `${visibleTypingUsers.map((u) => u.name).join(", ")} are typing…`}
               </div>
             ) : null}
             <div ref={bottomRef} />
@@ -228,11 +309,11 @@ const ChatFeed = ({ currentUser, room, token, isPriority }: ChatFeedProps) => {
         ) : (
           <div className="flex h-full flex-col items-center justify-center gap-2 text-sm theme-faint">
             <div>No messages yet.</div>
-            {typingUsers && typingUsers.length > 0 ? (
+            {typingIndicator && visibleTypingUsers && visibleTypingUsers.length > 0 ? (
               <div className="text-sm font-semibold theme-faint">
-                {typingUsers.length === 1
-                  ? `${typingUsers[0].name} is typing…`
-                  : `${typingUsers.map((u) => u.name).join(", ")} are typing…`}
+                {visibleTypingUsers.length === 1
+                  ? `${visibleTypingUsers[0].name} is typing…`
+                  : `${visibleTypingUsers.map((u) => u.name).join(", ")} are typing…`}
               </div>
             ) : null}
           </div>

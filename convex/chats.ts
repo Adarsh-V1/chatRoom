@@ -214,6 +214,31 @@ export const getChats = query({
   },
 });
 
+export const exportChats = query({
+  args: { token: v.string(), limit: v.optional(v.number()) },
+  handler: async (ctx, args) => {
+    await requireUserForToken(ctx, args.token);
+    const limit = Math.max(1, Math.min(args.limit ?? 2000, 5000));
+
+    const chats = await ctx.db
+      .query("chats")
+      .order("asc")
+      .take(limit);
+
+    return chats.map((chat) => ({
+      _id: chat._id,
+      _creationTime: chat._creationTime,
+      room: chat.room ?? "",
+      username: chat.username ?? "",
+      message: chat.message ?? "",
+      kind: chat.kind ?? "text",
+      fileName: chat.fileName ?? null,
+      fileType: chat.fileType ?? null,
+      fileSize: chat.fileSize ?? null,
+    }));
+  },
+});
+
 export const backfillLegacyChats = mutation({
   args: {},
   handler: async (ctx) => {

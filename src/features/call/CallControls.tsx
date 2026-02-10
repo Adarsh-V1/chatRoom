@@ -207,22 +207,19 @@ export function CallControls({
   };
 
   const baseBtn =
-    "inline-flex items-center justify-center gap-2 rounded-xl border px-3 py-2 text-sm font-semibold focus:outline-none focus:ring-2 active:scale-[0.98] sm:px-4 sm:py-3 sm:text-base";
+    "call-control-btn inline-flex items-center justify-center gap-2 rounded-xl border px-3 py-2 text-sm font-semibold focus:outline-none focus:ring-2 active:scale-[0.98] sm:px-4 sm:py-3 sm:text-base";
 
   return (
-    <div className="mx-auto w-full max-w-2xl rounded-2xl border border-white/10 bg-slate-950/60 p-2 shadow backdrop-blur">
+    <div className="call-controls-shell mx-auto w-full max-w-2xl rounded-2xl border p-2 shadow backdrop-blur">
       <div className="flex flex-wrap items-center justify-center gap-2">
-        <div className="rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-xs font-semibold text-slate-200">
+        <div className="call-control-pill rounded-xl border px-3 py-2 text-xs font-semibold">
           {qualityLabel}
         </div>
         <button
           type="button"
           onClick={toggleMic}
           aria-pressed={micEnabled}
-          className={
-            baseBtn +
-            " border-white/10 bg-white/5 text-slate-100 hover:bg-white/10 focus:ring-cyan-400/40"
-          }
+          className={baseBtn}
         >
           <IconMic muted={!micEnabled} />
           {micEnabled ? "Mic" : "Muted"}
@@ -232,10 +229,7 @@ export function CallControls({
           type="button"
           onClick={toggleCam}
           aria-pressed={camEnabled}
-          className={
-            baseBtn +
-            " border-white/10 bg-white/5 text-slate-100 hover:bg-white/10 focus:ring-cyan-400/40"
-          }
+          className={baseBtn}
         >
           <IconCam off={!camEnabled} />
           {camEnabled ? "Camera" : "Camera off"}
@@ -245,10 +239,7 @@ export function CallControls({
           type="button"
           onClick={onFlipCam}
           disabled={!canFlipCam || isFlipping}
-          className={
-            baseBtn +
-            " border-white/10 bg-white/5 text-slate-100 hover:bg-white/10 focus:ring-cyan-400/40 disabled:cursor-not-allowed disabled:opacity-60"
-          }
+          className={baseBtn + " disabled:cursor-not-allowed disabled:opacity-60"}
         >
           {isFlipping ? "Switching" : "Flip"}
         </button>
@@ -256,10 +247,7 @@ export function CallControls({
         <button
           type="button"
           onClick={onToggleShare}
-          className={
-            baseBtn +
-            " border-white/10 bg-white/5 text-slate-100 hover:bg-white/10 focus:ring-cyan-400/40"
-          }
+          className={baseBtn}
         >
           {isSharing ? "Stop share" : "Share"}
         </button>
@@ -267,10 +255,7 @@ export function CallControls({
         <button
           type="button"
           onClick={onToggleRecord}
-          className={
-            baseBtn +
-            " border-white/10 bg-white/5 text-slate-100 hover:bg-white/10 focus:ring-cyan-400/40"
-          }
+          className={baseBtn}
         >
           {isRecording ? "Stop rec" : "Record"}
         </button>
@@ -278,10 +263,7 @@ export function CallControls({
         <button
           type="button"
           onClick={onToggleChat}
-          className={
-            baseBtn +
-            " border-white/10 bg-white/5 text-slate-100 hover:bg-white/10 focus:ring-cyan-400/40"
-          }
+          className={baseBtn}
         >
           {chatOpen ? "Hide chat" : "Chat"}
         </button>
@@ -289,10 +271,7 @@ export function CallControls({
         <button
           type="button"
           onClick={onTogglePip}
-          className={
-            baseBtn +
-            " border-white/10 bg-white/5 text-slate-100 hover:bg-white/10 focus:ring-cyan-400/40"
-          }
+          className={baseBtn}
         >
           {pipEnabled ? "PiP on" : "PiP off"}
         </button>
@@ -300,10 +279,7 @@ export function CallControls({
         <button
           type="button"
           onClick={onToggleBlur}
-          className={
-            baseBtn +
-            " border-white/10 bg-white/5 text-slate-100 hover:bg-white/10 focus:ring-cyan-400/40"
-          }
+          className={baseBtn}
         >
           {blurEnabled ? "Blur on" : "Blur off"}
         </button>
@@ -311,10 +287,7 @@ export function CallControls({
         <button
           type="button"
           onClick={onToggleAutoGain}
-          className={
-            baseBtn +
-            " border-white/10 bg-white/5 text-slate-100 hover:bg-white/10 focus:ring-cyan-400/40"
-          }
+          className={baseBtn}
         >
           {autoGainEnabled ? "AGC on" : "AGC off"}
         </button>
@@ -322,10 +295,7 @@ export function CallControls({
         <button
           type="button"
           onClick={onToggleMuteOnJoin}
-          className={
-            baseBtn +
-            " border-white/10 bg-white/5 text-slate-100 hover:bg-white/10 focus:ring-cyan-400/40"
-          }
+          className={baseBtn}
         >
           {muteOnJoin ? "Mute join" : "Live join"}
         </button>
@@ -333,10 +303,7 @@ export function CallControls({
         <button
           type="button"
           onClick={onReconnect}
-          className={
-            baseBtn +
-            " border-white/10 bg-white/5 text-slate-100 hover:bg-white/10 focus:ring-cyan-400/40"
-          }
+          className={baseBtn}
         >
           Reconnect
         </button>
@@ -344,10 +311,7 @@ export function CallControls({
         <button
           type="button"
           onClick={leave}
-          className={
-            baseBtn +
-            " border-red-500/30 bg-red-500/15 text-red-50 hover:bg-red-500/25 focus:ring-red-400/40"
-          }
+          className={baseBtn + " call-control-danger focus:ring-red-400/40"}
         >
           Leave
         </button>

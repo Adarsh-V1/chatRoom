@@ -1,5 +1,5 @@
 import { mutation, query } from "./_generated/server";
-import { v } from "convex/values";
+import { ConvexError, v } from "convex/values";
 
 import { requireUserForToken } from "./lib/session";
 
@@ -70,5 +70,73 @@ export const setMyProfilePicture = mutation({
       profilePictureStorageId: args.storageId,
       updatedAt: Date.now(),
     });
+  },
+});
+
+export const getMutedUsers = query({
+  args: { token: v.string() },
+  handler: async (ctx, args) => {
+    const { user } = await requireUserForToken(ctx, args.token);
+    const muted = await ctx.db
+      .query("mutedUsers")
+      .withIndex("by_user_otherNameLower", (q) => q.eq("userId", user._id))
+      .collect();
+    return muted.map((m) => m.otherNameLower);
+  },
+});
+
+export const setMutedUser = mutation({
+  args: { token: v.string(), otherName: v.string(), muted: v.boolean() },
+  handler: async (ctx, args) => {
+    const { user } = await requireUserForToken(ctx, args.token);
+    const otherNameLower = args.otherName.trim().toLowerCase();
+    if (!otherNameLower) return;
+
+    const existing = await ctx.db
+      .query("mutedUsers")
+      .withIndex("by_user_otherNameLower", (q) =>
+        q.eq("userId", user._id).eq("otherNameLower", otherNameLower)
+      )
+      .first();
+
+    if (!args.muted) {
+      if (existing) await ctx.db.delete(existing._id);
+      return;
+    }
+
+    if (existing) return;
+
+    await ctx.db.insert("mutedUsers", {
+      userId: user._id,
+      otherNameLower,
+      createdAt: Date.now(),
+    });
+  },
+});
+
+export const updateMyName = mutation({
+  args: { token: v.string(), name: v.string() },
+  handler: async (ctx, args) => {
+    const { user } = await requireUserForToken(ctx, args.token);
+    const trimmed = args.name.trim();
+    if (!trimmed) throw new ConvexError("Name is required");
+
+    const nameLower = trimmed.toLowerCase();
+    const existing = await ctx.db
+      .query("users")
+      .withIndex("by_nameLower", (q) => q.eq("nameLower", nameLower))
+      .first();
+
+    if (existing && existing._id !== user._id) {
+      throw new ConvexError("Name already taken");
+    }
+
+    await ctx.db.patch(user._id, {
+      name: trimmed,
+      nameLower,
+      updatedAt: Date.now(),
+    });
+
+    return { name: trimmed };
   },
 });

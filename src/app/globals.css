@@ -1,27 +1,27 @@
 @import "tailwindcss";
 :root {
-  --background: #edf2ff;
+  --background: #f6f7ff;
   --foreground: #0b1220;
-  --page-bg: #edf2ff;
-  --page-gradient: radial-gradient(1200px circle at 12% 12%, rgba(56, 189, 248, 0.26), transparent 45%),
-    radial-gradient(1000px circle at 90% 14%, rgba(99, 102, 241, 0.22), transparent 48%),
-    radial-gradient(900px circle at 40% 100%, rgba(236, 72, 153, 0.16), transparent 46%),
-    linear-gradient(160deg, rgba(224, 231, 255, 0.92) 0%, rgba(241, 245, 255, 0.92) 45%, rgba(236, 254, 255, 0.92) 100%);
-  --surface-1: rgba(255, 255, 255, 0.94);
-  --surface-2: rgba(240, 245, 255, 0.82);
-  --surface-3: rgba(232, 240, 255, 0.94);
-  --text-1: #0b1220;
-  --text-2: #1f2937;
-  --text-3: #475569;
-  --border-1: rgba(30, 41, 59, 0.12);
-  --border-2: rgba(30, 41, 59, 0.2);
-  --chip-bg: rgba(59, 130, 246, 0.1);
-  --chip-hover: rgba(59, 130, 246, 0.18);
-  --overlay-bg: rgba(229, 237, 255, 0.86);
-  --accent-text: #2f4bd7;
-  --badge-bg: rgba(56, 189, 248, 0.16);
-  --badge-border: rgba(14, 116, 144, 0.2);
-  --badge-text: #0f172a;
+  --page-bg: #f6f7ff;
+  --page-gradient: radial-gradient(1200px circle at 12% 12%, rgba(59, 130, 246, 0.2), transparent 50%),
+    radial-gradient(1100px circle at 88% 10%, rgba(99, 102, 241, 0.18), transparent 52%),
+    radial-gradient(1000px circle at 40% 100%, rgba(236, 72, 153, 0.12), transparent 52%),
+    linear-gradient(165deg, rgba(238, 244, 255, 0.98) 0%, rgba(247, 249, 255, 0.98) 46%, rgba(236, 254, 255, 0.98) 100%);
+  --surface-1: rgba(255, 255, 255, 0.98);
+  --surface-2: rgba(245, 248, 255, 0.94);
+  --surface-3: rgba(236, 243, 255, 0.98);
+  --text-1: #0a1326;
+  --text-2: #1f2b43;
+  --text-3: #4b5a74;
+  --border-1: rgba(15, 23, 42, 0.14);
+  --border-2: rgba(15, 23, 42, 0.24);
+  --chip-bg: rgba(59, 130, 246, 0.14);
+  --chip-hover: rgba(59, 130, 246, 0.22);
+  --overlay-bg: rgba(232, 238, 255, 0.92);
+  --accent-text: #2848d8;
+  --badge-bg: rgba(59, 130, 246, 0.2);
+  --badge-border: rgba(37, 99, 235, 0.24);
+  --badge-text: #0b1220;
 }
 
 @theme inline {
@@ -61,6 +61,16 @@ html[data-theme="light"] {
 
 html[data-theme="dark"] {
   color-scheme: dark;
+}
+
+html[data-contrast="high"] {
+  --text-1: #0b1220;
+  --text-2: #0f172a;
+  --text-3: #1f2937;
+  --border-1: rgba(2, 6, 23, 0.35);
+  --border-2: rgba(2, 6, 23, 0.5);
+  --chip-bg: rgba(2, 6, 23, 0.08);
+  --chip-hover: rgba(2, 6, 23, 0.16);
 }
 
 body {
@@ -149,6 +159,52 @@ html {
 
 .theme-overlay {
   background-color: var(--overlay-bg);
+  border-color: var(--border-1);
+  color: var(--text-1);
+}
+
+.call-controls-shell {
+  background-color: var(--surface-2);
+  border-color: var(--border-1);
+  color: var(--text-1);
+}
+
+.call-control-pill {
+  background-color: var(--surface-1);
+  border-color: var(--border-1);
+  color: var(--text-1);
+}
+
+.call-control-btn {
+  background-color: var(--surface-1);
+  border-color: var(--border-1);
+  color: var(--text-1);
+}
+
+.call-control-btn:hover {
+  background-color: var(--surface-2);
+}
+
+.call-control-danger {
+  background-color: rgba(239, 68, 68, 0.18);
+  border-color: rgba(239, 68, 68, 0.35);
+  color: var(--text-1);
+}
+
+.call-video-shell {
+  background-color: var(--surface-3);
+  border-color: var(--border-1);
+  color: var(--text-1);
+}
+
+.call-video-label {
+  background-color: var(--surface-1);
+  border-color: var(--border-1);
+  color: var(--text-1);
+}
+
+.call-video-pip {
+  background-color: var(--surface-2);
   border-color: var(--border-1);
   color: var(--text-1);
 }

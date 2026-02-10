@@ -21,7 +21,7 @@ const attachmentItems = [
 
 export function ChatDetailsPanel({ title, subtitle, avatarUrl, onChat, onVideoCall }: Props) {
   return (
-    <aside className="flex h-full min-h-[60vh] w-full flex-col rounded-2xl border theme-panel p-4 shadow backdrop-blur lg:h-[calc(100vh-3rem)]">
+    <aside className="flex p-2 max-h-[90vh] min-h-[60vh] w-full flex-col rounded-2xl border theme-panel p-4 shadow backdrop-blur lg:h-[calc(100vh-3rem)]">
       <div className="flex flex-col items-center text-center">
         <Avatar name={title} url={avatarUrl} size="lg" className="h-20 w-20 rounded-3xl" />
         <div className="mt-3 text-base font-semibold theme-text">{title}</div>

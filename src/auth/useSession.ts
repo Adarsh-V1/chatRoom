@@ -12,11 +12,7 @@ export type SessionUser = {
 };
 
 export function useSession() {
-  const [token, setTokenState] = useState<string | null | undefined>(undefined);
-
-  useEffect(() => {
-    setTokenState(getSessionToken());
-  }, []);
+  const [token, setTokenState] = useState<string | null>(() => getSessionToken());
 
   const sessionUser = useQuery(
     api.auth.getSessionUser,
@@ -41,7 +37,6 @@ export function useSession() {
   };
 
   const isReady = useMemo(() => {
-    if (token === undefined) return false;
     if (token === null) return true;
     return sessionUser !== undefined;
   }, [token, sessionUser]);

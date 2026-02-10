@@ -95,7 +95,15 @@ export const getUsernames = query({
 });
 
 export const addChat = mutation({
-  args: { message: v.string(), token: v.string(), room: v.string() },
+  args: {
+    message: v.string(),
+    token: v.string(),
+    room: v.string(),
+    contextType: v.optional(
+      v.union(v.literal("file"), v.literal("snippet"), v.literal("task"))
+    ),
+    contextData: v.optional(v.string()),
+  },
   handler: async (ctx, args) => {
     const { user } = await requireUserForToken(ctx, args.token);
 
@@ -105,6 +113,8 @@ export const addChat = mutation({
       username: user.name,
       room: args.room,
       kind: "text",
+      contextType: args.contextType,
+      contextData: args.contextData,
     });
   },
 });
@@ -118,6 +128,10 @@ export const addFileChat = mutation({
     fileType: v.optional(v.string()),
     fileSize: v.optional(v.number()),
     message: v.optional(v.string()),
+    contextType: v.optional(
+      v.union(v.literal("file"), v.literal("snippet"), v.literal("task"))
+    ),
+    contextData: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
     const { user } = await requireUserForToken(ctx, args.token);
@@ -132,6 +146,8 @@ export const addFileChat = mutation({
       fileName: args.fileName,
       fileType: args.fileType,
       fileSize: args.fileSize,
+      contextType: args.contextType,
+      contextData: args.contextData,
     });
   },
 });

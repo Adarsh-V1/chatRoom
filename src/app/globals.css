@@ -1,8 +1,27 @@
 @import "tailwindcss";
-
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --background: #edf2ff;
+  --foreground: #0b1220;
+  --page-bg: #edf2ff;
+  --page-gradient: radial-gradient(1200px circle at 12% 12%, rgba(56, 189, 248, 0.26), transparent 45%),
+    radial-gradient(1000px circle at 90% 14%, rgba(99, 102, 241, 0.22), transparent 48%),
+    radial-gradient(900px circle at 40% 100%, rgba(236, 72, 153, 0.16), transparent 46%),
+    linear-gradient(160deg, rgba(224, 231, 255, 0.92) 0%, rgba(241, 245, 255, 0.92) 45%, rgba(236, 254, 255, 0.92) 100%);
+  --surface-1: rgba(255, 255, 255, 0.94);
+  --surface-2: rgba(240, 245, 255, 0.82);
+  --surface-3: rgba(232, 240, 255, 0.94);
+  --text-1: #0b1220;
+  --text-2: #1f2937;
+  --text-3: #475569;
+  --border-1: rgba(30, 41, 59, 0.12);
+  --border-2: rgba(30, 41, 59, 0.2);
+  --chip-bg: rgba(59, 130, 246, 0.1);
+  --chip-hover: rgba(59, 130, 246, 0.18);
+  --overlay-bg: rgba(229, 237, 255, 0.86);
+  --accent-text: #2f4bd7;
+  --badge-bg: rgba(56, 189, 248, 0.16);
+  --badge-border: rgba(14, 116, 144, 0.2);
+  --badge-text: #0f172a;
 }
 
 @theme inline {
@@ -12,15 +31,167 @@
   --font-mono: var(--font-geist-mono);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+html[data-theme="dark"] {
+  --background: #020617;
+  --foreground: #f8fafc;
+  --page-bg: #020617;
+  --page-gradient: radial-gradient(1200px circle at 10% 10%, rgba(59, 130, 246, 0.18), transparent 42%),
+    radial-gradient(900px circle at 90% 10%, rgba(14, 165, 233, 0.2), transparent 45%),
+    radial-gradient(1000px circle at 50% 100%, rgba(99, 102, 241, 0.18), transparent 40%);
+  --surface-1: rgba(2, 6, 23, 0.75);
+  --surface-2: rgba(2, 6, 23, 0.6);
+  --surface-3: rgba(15, 23, 42, 0.6);
+  --text-1: #f8fafc;
+  --text-2: #cbd5f5;
+  --text-3: #94a3b8;
+  --border-1: rgba(255, 255, 255, 0.12);
+  --border-2: rgba(255, 255, 255, 0.2);
+  --chip-bg: rgba(255, 255, 255, 0.06);
+  --chip-hover: rgba(255, 255, 255, 0.12);
+  --overlay-bg: rgba(2, 6, 23, 0.8);
+  --accent-text: #c7d2fe;
+  --badge-bg: rgba(14, 165, 233, 0.2);
+  --badge-border: rgba(56, 189, 248, 0.25);
+  --badge-text: #e2f2ff;
+}
+
+html[data-theme="light"] {
+  color-scheme: light;
+}
+
+html[data-theme="dark"] {
+  color-scheme: dark;
 }
 
 body {
   background: var(--background);
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
+}
+
+html {
+  font-size: 17px;
+}
+
+.theme-page {
+  background-color: var(--page-bg);
+  background-image: var(--page-gradient);
+  background-attachment: fixed;
+}
+
+.theme-card {
+  background-color: var(--surface-1);
+  border-color: var(--border-1);
+  color: var(--text-1);
+}
+
+.theme-panel {
+  background-color: var(--surface-2);
+  border-color: var(--border-1);
+  color: var(--text-1);
+}
+
+.theme-panel-strong {
+  background-color: var(--surface-3);
+  border-color: var(--border-2);
+  color: var(--text-1);
+}
+
+.theme-muted {
+  color: var(--text-2);
+}
+
+.theme-text {
+  color: var(--text-1);
+}
+
+.theme-accent {
+  color: var(--accent-text);
+}
+
+.theme-faint {
+  color: var(--text-3);
+}
+
+.theme-border {
+  border-color: var(--border-1);
+}
+
+.theme-border-strong {
+  border-color: var(--border-2);
+}
+
+.theme-chip {
+  background-color: var(--chip-bg);
+  border-color: var(--border-1);
+  color: var(--text-1);
+}
+
+.theme-chip:hover {
+  background-color: var(--chip-hover);
+}
+
+.theme-badge {
+  background-color: var(--badge-bg);
+  border-color: var(--badge-border);
+  color: var(--badge-text);
+}
+
+.theme-input {
+  background-color: var(--surface-1);
+  border-color: var(--border-1);
+  color: var(--text-1);
+}
+
+.theme-input::placeholder {
+  color: var(--text-3);
+}
+
+.theme-overlay {
+  background-color: var(--overlay-bg);
+  border-color: var(--border-1);
+  color: var(--text-1);
+}
+
+:where(.theme-card, .theme-panel, .theme-panel-strong, .theme-chip, button, a) {
+  transition: transform 160ms ease, box-shadow 180ms ease, background-color 180ms ease,
+    border-color 180ms ease, color 180ms ease, opacity 180ms ease;
+}
+
+:where(.theme-card, .theme-panel, .theme-panel-strong):hover {
+  box-shadow: 0 0 0 1px rgba(59, 130, 246, 0.18), 0 10px 28px rgba(15, 23, 42, 0.12);
+  border-color: rgba(59, 130, 246, 0.28);
+  filter: saturate(1.05) brightness(1.02);
+}
+
+html[data-theme="dark"] :where(.theme-card, .theme-panel, .theme-panel-strong):hover {
+  box-shadow: 0 0 0 1px rgba(56, 189, 248, 0.22), 0 14px 36px rgba(0, 0, 0, 0.45);
+  border-color: rgba(56, 189, 248, 0.28);
+}
+
+:where(.theme-chip, button, a):hover {
+  box-shadow: 0 0 0 1px rgba(59, 130, 246, 0.2);
+  border-color: rgba(59, 130, 246, 0.35);
+  filter: brightness(1.04);
+}
+
+:where(button, a):active {
+  filter: brightness(0.98);
+}
+
+html[data-theme="light"] button {
+  color: var(--text-1);
+}
+
+html[data-theme="light"] .text-white,
+html[data-theme="light"] .text-slate-50,
+html[data-theme="light"] .text-slate-100,
+html[data-theme="light"] .text-slate-200,
+html[data-theme="light"] .text-slate-300,
+html[data-theme="light"] .text-slate-400,
+html[data-theme="light"] .text-indigo-100,
+html[data-theme="light"] .text-indigo-200,
+html[data-theme="light"] .text-cyan-100,
+html[data-theme="light"] .text-cyan-200 {
+  color: var(--text-1);
 }

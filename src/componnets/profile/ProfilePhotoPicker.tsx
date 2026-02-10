@@ -37,13 +37,13 @@ export function ProfilePhotoPicker({ nameForFallback, file, onFileChange }: Prop
         }}
       />
 
-      <div className="mt-5 rounded-2xl border border-white/10 bg-white/5 p-4 shadow-sm">
+      <div className="mt-5 rounded-2xl border theme-panel p-4 shadow-sm">
         <div className="flex items-center justify-between gap-3">
           <div className="flex min-w-0 items-center gap-3">
             <Avatar name={nameForFallback} url={previewUrl} size="lg" />
             <div className="min-w-0">
-              <div className="text-sm font-semibold text-white">Profile photo</div>
-              <div className="truncate text-xs text-slate-300">
+              <div className="text-sm font-semibold theme-text">Profile photo</div>
+              <div className="truncate text-xs theme-muted">
                 {file ? file.name : "Optional — shows next to your name"}
               </div>
             </div>
@@ -53,7 +53,7 @@ export function ProfilePhotoPicker({ nameForFallback, file, onFileChange }: Prop
             <button
               type="button"
               onClick={() => inputRef.current?.click()}
-              className="rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-xs font-semibold text-slate-100 hover:bg-white/10 focus:outline-none focus:ring-2 focus:ring-cyan-400/40 active:scale-[0.98]"
+              className="rounded-xl border px-3 py-2 text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-cyan-400/40 active:scale-[0.98] theme-chip"
             >
               {file ? "Change" : "Upload"}
             </button>
@@ -61,7 +61,7 @@ export function ProfilePhotoPicker({ nameForFallback, file, onFileChange }: Prop
               <button
                 type="button"
                 onClick={() => onFileChange(null)}
-                className="rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-xs font-semibold text-slate-100 hover:bg-white/10 focus:outline-none focus:ring-2 focus:ring-cyan-400/40 active:scale-[0.98]"
+                className="rounded-xl border px-3 py-2 text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-cyan-400/40 active:scale-[0.98] theme-chip"
               >
                 Remove
               </button>

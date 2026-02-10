@@ -19,7 +19,7 @@ export function Avatar({ name, url, size = "md", className }: Props) {
   return (
     <div
       className={
-        "shrink-0 overflow-hidden border border-white/10 bg-slate-950/40 " +
+        "shrink-0 overflow-hidden border theme-panel-strong " +
         sizeClasses[size] +
         (className ? ` ${className}` : "")
       }
@@ -28,7 +28,7 @@ export function Avatar({ name, url, size = "md", className }: Props) {
         // eslint-disable-next-line @next/next/no-img-element
         <img src={url} alt={name} className="h-full w-full object-cover" />
       ) : (
-        <div className="flex h-full w-full items-center justify-center text-xs font-bold text-slate-200">
+        <div className="flex h-full w-full items-center justify-center text-xs font-bold theme-muted">
           {initial}
         </div>
       )}

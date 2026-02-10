@@ -1,7 +1,9 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono, Rubik_Scribble } from "next/font/google";
 import "./globals.css";
+import "@livekit/components-styles";
 import { ConvexClientProvider } from "./ConvexClientProvider";
+import { ThemeProvider } from "./ThemeProvider";
 
 
 const geistSans = Geist({
@@ -36,7 +38,7 @@ export default function RootLayout({
   const convexUrl = process.env.NEXT_PUBLIC_CONVEX_URL;
 
   return (
-    <html lang="en">
+      <html lang="en" suppressHydrationWarning>
       <body
         className={`
           ${geistSans.variable}
@@ -45,9 +47,11 @@ export default function RootLayout({
           antialiased
         `}
       >
-        <ConvexClientProvider convexUrl={convexUrl}>
-          {children}
-        </ConvexClientProvider>
+        <ThemeProvider>
+          <ConvexClientProvider convexUrl={convexUrl}>
+            {children}
+          </ConvexClientProvider>
+        </ThemeProvider>
       </body>
     </html>
   );

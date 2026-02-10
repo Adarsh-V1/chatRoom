@@ -9,10 +9,15 @@
  */
 
 import type * as auth from "../auth.js";
+import type * as calls from "../calls.js";
 import type * as chats from "../chats.js";
 import type * as lib_password from "../lib/password.js";
 import type * as lib_session from "../lib/session.js";
+import type * as priorities from "../priorities.js";
+import type * as settings from "../settings.js";
+import type * as unread from "../unread.js";
 import type * as users from "../users.js";
+import type * as webrtc from "../webrtc.js";
 
 import type {
   ApiFromModules,
@@ -22,10 +27,15 @@ import type {
 
 declare const fullApi: ApiFromModules<{
   auth: typeof auth;
+  calls: typeof calls;
   chats: typeof chats;
   "lib/password": typeof lib_password;
   "lib/session": typeof lib_session;
+  priorities: typeof priorities;
+  settings: typeof settings;
+  unread: typeof unread;
   users: typeof users;
+  webrtc: typeof webrtc;
 }>;
 
 /**

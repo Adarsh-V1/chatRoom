@@ -12,6 +12,7 @@ type Props = {
 
 export function OnlineAs({ token }: Props) {
   const me = useQuery(api.users.getMe, { token });
+  const settings = useQuery(api.settings.getMySettings, { token });
 
   if (!me) return null;
 
@@ -19,7 +20,14 @@ export function OnlineAs({ token }: Props) {
     <div className="mt-1 flex items-center gap-3">
       <Avatar name={me.name} url={me.profilePictureUrl} size="md" className="rounded-xl" />
       <div className="min-w-0">
-        <div className="truncate text-lg font-bold text-white">{me.name}</div>
+        <div className="flex flex-wrap items-center gap-2">
+          <div className="truncate text-lg font-bold theme-text">{me.name}</div>
+          {settings?.focusMode ? (
+            <div className="rounded-full border px-2 py-0.5 text-[10px] font-semibold theme-badge">
+              In Focus Mode
+            </div>
+          ) : null}
+        </div>
       </div>
     </div>
   );

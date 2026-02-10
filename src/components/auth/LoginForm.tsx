@@ -56,15 +56,15 @@ export function LoginForm({ title, subtitle, onSubmit }: Props) {
           setIsSubmitting(false);
         }
       }}
-      className="w-full rounded-2xl border border-white/10 bg-slate-950/50 p-8 shadow backdrop-blur"
+      className="w-full rounded-2xl border theme-card p-8 shadow backdrop-blur"
     >
-      <h2 className="text-xl font-bold text-white">{title}</h2>
-      <p className="mt-1 text-sm text-slate-300">{subtitle}</p>
+      <h2 className="text-xl font-bold theme-text">{title}</h2>
+      <p className="mt-1 text-sm theme-muted">{subtitle}</p>
 
       <AvatarPicker file={avatarFile} previewUrl={avatarPreviewUrl} onChange={setAvatarFile} />
 
       <div className="mt-5">
-        <label className="block text-xs font-semibold tracking-widest text-slate-300/80">
+        <label className="block text-xs font-semibold tracking-widest theme-faint">
           USERNAME
         </label>
         <input
@@ -72,13 +72,13 @@ export function LoginForm({ title, subtitle, onSubmit }: Props) {
           value={name}
           onChange={(e) => setName(e.target.value)}
           placeholder="Your name..."
-          className="mt-2 w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-white placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-cyan-400/40"
+          className="mt-2 w-full rounded-xl border px-4 py-3 focus:outline-none focus:ring-2 focus:ring-cyan-400/40 theme-input"
           autoFocus
         />
       </div>
 
       <div className="mt-4">
-        <label className="block text-xs font-semibold tracking-widest text-slate-300/80">
+        <label className="block text-xs font-semibold tracking-widest theme-faint">
           PASSWORD (4–5 LETTERS)
         </label>
         <input
@@ -86,9 +86,9 @@ export function LoginForm({ title, subtitle, onSubmit }: Props) {
           value={password}
           onChange={(e) => setPassword(e.target.value)}
           placeholder="abcd"
-          className="mt-2 w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-white placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-400/50"
+          className="mt-2 w-full rounded-xl border px-4 py-3 focus:outline-none focus:ring-2 focus:ring-indigo-400/50 theme-input"
         />
-        <div className="mt-2 text-xs text-slate-300">
+        <div className="mt-2 text-xs theme-faint">
           Letters only: A–Z, length 4 or 5.
         </div>
       </div>

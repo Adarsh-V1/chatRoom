@@ -52,14 +52,14 @@ export function LoginCard({ title, subtitle, onSubmit }: Props) {
           setSubmitting(false);
         }
       }}
-      className="w-full rounded-2xl border border-white/10 bg-slate-950/50 p-8 shadow backdrop-blur"
+      className="w-full rounded-2xl border theme-card p-8 shadow backdrop-blur"
     >
       <div className="flex items-start justify-between gap-4">
         <div>
-          <h2 className="text-xl font-bold text-white">{title}</h2>
-          {subtitle ? <p className="mt-1 text-sm text-slate-300">{subtitle}</p> : null}
+          <h2 className="text-xl font-bold theme-text">{title}</h2>
+          {subtitle ? <p className="mt-1 text-sm theme-muted">{subtitle}</p> : null}
         </div>
-        <div className="hidden sm:block rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs font-semibold text-slate-200">
+        <div className="hidden sm:block rounded-full border px-3 py-1 text-xs font-semibold theme-chip theme-muted">
           LOGIN
         </div>
       </div>
@@ -67,20 +67,20 @@ export function LoginCard({ title, subtitle, onSubmit }: Props) {
       <ProfilePhotoPicker nameForFallback={name || "You"} file={profileFile} onFileChange={setProfileFile} />
 
       <label className="mt-5 block">
-        <div className="text-xs font-semibold tracking-widest text-slate-300/80">USERNAME</div>
+        <div className="text-xs font-semibold tracking-widest theme-faint">USERNAME</div>
         <input
           value={name}
           onChange={(e) => setName(e.target.value)}
           placeholder="Your name…"
-          className="mt-2 w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-white placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-cyan-400/40"
+          className="mt-2 w-full rounded-xl border px-4 py-3 focus:outline-none focus:ring-2 focus:ring-cyan-400/40 theme-input"
           autoFocus
         />
       </label>
 
       <label className="mt-4 block">
         <div className="flex items-center justify-between">
-          <div className="text-xs font-semibold tracking-widest text-slate-300/80">PASSWORD</div>
-          <div className="text-xs text-slate-400">4–5 letters</div>
+          <div className="text-xs font-semibold tracking-widest theme-faint">PASSWORD</div>
+          <div className="text-xs theme-faint">4–5 letters</div>
         </div>
         <input
           value={password}
@@ -89,7 +89,7 @@ export function LoginCard({ title, subtitle, onSubmit }: Props) {
           type="password"
           inputMode="text"
           autoComplete="current-password"
-          className="mt-2 w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-white placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-cyan-400/40"
+          className="mt-2 w-full rounded-xl border px-4 py-3 focus:outline-none focus:ring-2 focus:ring-cyan-400/40 theme-input"
         />
       </label>
 

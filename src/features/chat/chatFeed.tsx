@@ -17,7 +17,7 @@ interface ChatFeedProps {
 }
 
 const ChatFeed = ({ currentUser, room, token, isPriority }: ChatFeedProps) => {
-  const feed = useQuery(api.chats.getChats, { room });
+  const feed = useQuery(api.chats.getChats, { room, token: token || undefined });
   const bottomRef = useRef<HTMLDivElement | null>(null);
   const scrollRef = useRef<HTMLDivElement | null>(null);
 

@@ -22,6 +22,22 @@ const navItems = [
     ),
   },
   {
+    label: "Groups",
+    href: "/groups",
+    icon: (
+      <svg viewBox="0 0 24 24" className="h-5 w-5" aria-hidden="true">
+        <path
+          d="M7 11a3 3 0 1 0-3-3 3 3 0 0 0 3 3Zm10 0a3 3 0 1 0-3-3 3 3 0 0 0 3 3ZM4 20a4 4 0 0 1 8 0m0 0h8a4 4 0 0 0-8 0Z"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        />
+      </svg>
+    ),
+  },
+  {
     label: "Settings",
     href: "/settings",
     icon: (

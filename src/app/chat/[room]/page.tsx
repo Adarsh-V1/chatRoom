@@ -1,8 +1,12 @@
 import { notFound } from "next/navigation";
 import { RoomClientOnly } from "../RoomClientOnly";
 
-export default function ChatRoomPage({ params }: { params: { room: string } }) {
-  const room = params.room;
+export default async function ChatRoomPage({
+  params,
+}: {
+  params: Promise<{ room: string }>;
+}) {
+  const { room } = await params;
   if (!room) return notFound();
   return <RoomClientOnly room={room} />;
 }

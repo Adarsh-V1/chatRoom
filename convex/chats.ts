@@ -1,7 +1,41 @@
 import { mutation, query } from "./_generated/server";
-import { v } from "convex/values";
+import { ConvexError, v } from "convex/values";
 
 import { requireUserForToken } from "./lib/session";
+
+const GROUP_ROOM_PREFIX = "group:";
+
+function parseGroupSlug(room: string): string | null {
+  const trimmed = room.trim();
+  if (!trimmed.startsWith(GROUP_ROOM_PREFIX)) return null;
+  const slug = trimmed.slice(GROUP_ROOM_PREFIX.length).trim();
+  return slug || null;
+}
+
+async function requireGroupMembership(ctx: any, room: string, token?: string) {
+  const groupSlug = parseGroupSlug(room);
+  if (!groupSlug) return null;
+  if (!token) throw new ConvexError("Authentication required");
+
+  const { user } = await requireUserForToken(ctx, token);
+  const group = await ctx.db
+    .query("groups")
+    .withIndex("by_slug", (q: any) => q.eq("slug", groupSlug))
+    .first();
+
+  if (!group) throw new ConvexError("Group not found");
+
+  const membership = await ctx.db
+    .query("groupMembers")
+    .withIndex("by_group_user", (q: any) =>
+      q.eq("groupId", group._id).eq("userId", user._id)
+    )
+    .first();
+
+  if (!membership) throw new ConvexError("Join the group to view messages");
+
+  return { group, user };
+}
 
 export const generateUploadUrl = mutation({
   args: {},
@@ -106,6 +140,7 @@ export const addChat = mutation({
   },
   handler: async (ctx, args) => {
     const { user } = await requireUserForToken(ctx, args.token);
+    await requireGroupMembership(ctx, args.room, args.token);
 
     await ctx.db.insert("chats", {
       message: args.message,
@@ -135,6 +170,7 @@ export const addFileChat = mutation({
   },
   handler: async (ctx, args) => {
     const { user } = await requireUserForToken(ctx, args.token);
+    await requireGroupMembership(ctx, args.room, args.token);
 
     await ctx.db.insert("chats", {
       message: (args.message ?? "").toString(),
@@ -169,8 +205,9 @@ export const softDeleteChat = mutation({
 });
 
 export const getChats = query({
-  args: { room: v.string() },
+  args: { room: v.string(), token: v.optional(v.string()) },
   handler: async (ctx, args) => {
+    await requireGroupMembership(ctx, args.room, args.token);
     const chats = await ctx.db
       .query("chats")
       .filter((q) => q.eq(q.field("room"), args.room))

@@ -113,6 +113,37 @@ export default defineSchema({
     .index("by_room_user", ["room", "userId"])
     .index("by_room_updatedAt", ["room", "updatedAt"]),
 
+  groups: defineTable({
+    name: v.string(),
+    slug: v.string(),
+    description: v.optional(v.string()),
+    createdBy: v.id("users"),
+    isPublic: v.boolean(),
+    createdAt: v.number(),
+  })
+    .index("by_slug", ["slug"])
+    .index("by_createdBy", ["createdBy"]),
+
+  groupMembers: defineTable({
+    groupId: v.id("groups"),
+    userId: v.id("users"),
+    role: v.union(v.literal("owner"), v.literal("member")),
+    joinedAt: v.number(),
+  })
+    .index("by_group_user", ["groupId", "userId"])
+    .index("by_group", ["groupId"])
+    .index("by_user", ["userId"]),
+
+  groupInvites: defineTable({
+    groupId: v.id("groups"),
+    invitedUserId: v.id("users"),
+    invitedBy: v.id("users"),
+    createdAt: v.number(),
+    acceptedAt: v.optional(v.number()),
+  })
+    .index("by_group_user", ["groupId", "invitedUserId"])
+    .index("by_user", ["invitedUserId"]),
+
   calls: defineTable({
     roomId: v.string(),
     conversationId: v.string(),

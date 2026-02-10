@@ -2,11 +2,8 @@
 
 import dynamic from "next/dynamic";
 
-const GeneralChatClient = dynamic(
-  () =>
-    import("@/src/features/chat/GeneralChatClient").then(
-      (m) => m.GeneralChatClient
-    ),
+const UsersClient = dynamic(
+  () => import("@/src/features/users/UsersClient").then((m) => m.UsersClient),
   {
     ssr: false,
     loading: () => (
@@ -21,6 +18,6 @@ const GeneralChatClient = dynamic(
   }
 );
 
-export function ChatClientOnly() {
-  return <GeneralChatClient />;
+export function UsersClientOnly() {
+  return <UsersClient />;
 }

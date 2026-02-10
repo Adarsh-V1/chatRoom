@@ -5,24 +5,27 @@ import { useMutation, useQuery } from "convex/react";
 import { useRouter } from "next/navigation";
 import { ChatFeed } from "./chatFeed";
 import { ChatForm } from "./chatForm";
-import { UserListSidebar } from "./UserListSidebar";
+import { ChatDetailsPanel } from "./ChatDetailsPanel";
+
 import { api } from "@/convex/_generated/api";
 import type { Id } from "@/convex/_generated/dataModel";
-import { LoginCard } from "@/src/componnets/auth/LoginCard";
-import { useChatAuth } from "@/src/componnets/auth/useChatAuth";
-import { OnlineAs } from "@/src/componnets/chat/OnlineAs";
+import { LoginCard } from "@/src/features/auth/LoginCard";
+import { useChatAuth } from "@/src/features/auth/useChatAuth";
+import { OnlineAs } from "@/src/features/chat/OnlineAs";
 import { FocusModeToggle } from "@/src/features/focus/FocusModeToggle";
 import { PriorityStarButton } from "@/src/features/focus/PriorityStarButton";
 import { PrivacyBlurOverlay, PrivacyToggleButton } from "@/src/features/privacy/PrivacyControls";
 import { usePrivacyBlur } from "@/src/features/privacy/usePrivacyBlur";
-import { ThemeToggle } from "@/src/componnets/theme/ThemeToggle";
+import { ThemeToggle } from "@/src/features/theme/ThemeToggle";
 
-const GeneralChatClient = () => {
-  const [selectedUser, setSelectedUser] = useState<string | null>(null);
-  const [isUserListOpen, setIsUserListOpen] = useState(false);
+interface RoomChatClientProps { 
+  room: string;
+}
+
+const RoomChatClient = ({ room }: RoomChatClientProps) => {
   const router = useRouter();
-
   const auth = useChatAuth();
+  const [isDetailsOpen, setIsDetailsOpen] = useState(false);
   const generateUploadUrl = useMutation(api.chats.generateUploadUrl);
   const setMyProfilePicture = useMutation(api.users.setMyProfilePicture);
   const startCall = useMutation(api.calls.startCall);
@@ -30,14 +33,9 @@ const GeneralChatClient = () => {
   const username = auth.name ?? "";
   const token = auth.token ?? "";
 
-  const chatRoom =
-    selectedUser && selectedUser !== username
-      ? [username.toLowerCase(), selectedUser.toLowerCase()].sort().join("-")
-      : "general";
-
   const activeCall = useQuery(
     api.calls.getActiveCall,
-    auth.isLoggedIn ? { conversationId: chatRoom } : "skip"
+    auth.isLoggedIn ? { conversationId: room } : "skip"
   );
 
   const joinOrStartCall = async () => {
@@ -48,39 +46,21 @@ const GeneralChatClient = () => {
       return;
     }
 
-    const result = await startCall({ token, conversationId: chatRoom });
+    const result = await startCall({ token, conversationId: room });
     router.push(`/call/${result.roomId}`);
   };
 
   const roomPriority = useQuery(
     api.priorities.getRoomPriority,
-    auth.isLoggedIn ? { token, room: chatRoom } : "skip"
+    auth.isLoggedIn ? { token, room } : "skip"
   );
-  const userPriority = useQuery(
-    api.priorities.getUserPriority,
-    auth.isLoggedIn && selectedUser && selectedUser !== username
-      ? { token, otherName: selectedUser }
-      : "skip"
-  );
-
-  const selectedStatus = useQuery(
-    api.presence.getUserStatuses,
-    auth.isLoggedIn && selectedUser ? { token, names: [selectedUser] } : "skip"
-  );
-
-  const selectedPresence = selectedStatus?.[0];
-
-  const isPriority = Boolean(
-    selectedUser && selectedUser !== username
-      ? userPriority?.priority
-      : roomPriority?.priority
-  );
+  const isPriority = Boolean(roomPriority?.priority);
 
   const privacy = usePrivacyBlur({ idleMs: 30_000 });
 
   if (!auth.isReady) {
     return (
-      <main className="min-h-screen w-full theme-page p-4 sm:p-6">
+        <main className="h-screen w-full overflow-hidden theme-page p-4 sm:p-6">
         <div className="mx-auto flex min-h-[calc(100vh-2rem)] w-full max-w-md items-center justify-center">
           <div className="w-full rounded-2xl border theme-card p-8 shadow backdrop-blur">
             <div className="text-sm font-semibold theme-muted">Loading…</div>
@@ -91,33 +71,24 @@ const GeneralChatClient = () => {
   }
 
   return (
-    <main className="min-h-screen w-full theme-page p-4 sm:p-6">
+    <main className="h-screen w-full overflow-hidden theme-page p-4 sm:p-6">
       {auth.isLoggedIn ? (
-        <div className="mx-auto flex w-full max-w-none flex-col gap-4 md:flex-row">
-          <div className="hidden md:block">
-            <UserListSidebar
-              currentUser={username}
-              token={token}
-              onSelectUser={(user) => setSelectedUser(user === username ? null : user)}
-            />
-          </div>
-          <section className="relative flex h-auto min-h-[60vh] flex-1 flex-col rounded-2xl border theme-panel p-4 shadow backdrop-blur md:h-[calc(100vh-3rem)]">
+        <div className="mx-auto grid h-full w-full max-w-6xl grid-cols-1 gap-4 lg:grid-cols-[minmax(0,1fr)_280px]">
+          <section className="relative flex h-full min-h-0 flex-1 flex-col rounded-2xl border theme-panel p-4 shadow backdrop-blur">
             <header className="mb-3 flex flex-wrap items-center justify-between gap-2">
               <div>
-                <div className="text-xs font-semibold tracking-widest theme-faint">
-                  ONLINE AS
-                </div>
+                <div className="text-xs font-semibold tracking-widest theme-faint">ONLINE AS</div>
                 <OnlineAs token={token} />
               </div>
 
               <div className="flex flex-wrap items-center gap-2">
                 <button
                   type="button"
-                  onClick={() => setIsUserListOpen(true)}
-                  className="inline-flex items-center justify-center rounded-full border px-3 py-2 text-xs font-semibold shadow-sm focus:outline-none focus:ring-2 focus:ring-cyan-400/40 active:scale-[0.98] theme-chip md:hidden"
-                  aria-label="Open players"
+                  onClick={() => setIsDetailsOpen(true)}
+                  className="inline-flex items-center justify-center rounded-full border px-3 py-2 text-xs font-semibold shadow-sm focus:outline-none focus:ring-2 focus:ring-cyan-400/40 active:scale-[0.98] theme-chip lg:hidden"
+                  aria-label="Open details"
                 >
-                  Players
+                  Details
                 </button>
                 <FocusModeToggle token={token} />
                 <PrivacyToggleButton
@@ -125,12 +96,7 @@ const GeneralChatClient = () => {
                   onToggle={() => privacy.setManualPrivacy(!privacy.manualPrivacy)}
                 />
                 <ThemeToggle />
-
-                {selectedUser && selectedUser !== username ? (
-                  <PriorityStarButton token={token} kind="user" otherName={selectedUser} />
-                ) : (
-                  <PriorityStarButton token={token} kind="room" room={chatRoom} />
-                )}
+                <PriorityStarButton token={token} kind="room" room={room} />
 
                 <button
                   type="button"
@@ -155,35 +121,8 @@ const GeneralChatClient = () => {
                   </svg>
                 </button>
 
-                <div className="rounded-full border px-4 py-2 text-sm font-semibold backdrop-blur theme-chip">
-                  {selectedUser && selectedUser !== username ? (
-                    <span>
-                      Direct: <span className="theme-accent">{selectedUser}</span>
-                      {selectedPresence ? (
-                        <span className="ml-2 text-xs font-semibold theme-faint">
-                          {selectedPresence.online
-                            ? "Online"
-                            : "Last seen " +
-                              (() => {
-                                const ts = selectedPresence.lastSeenAt;
-                                if (!ts) return "unknown";
-                                const diffMs = Date.now() - ts;
-                                const mins = Math.floor(diffMs / 60000);
-                                if (mins < 1) return "just now";
-                                if (mins < 60) return `${mins}m ago`;
-                                const hours = Math.floor(mins / 60);
-                                if (hours < 24) return `${hours}h ago`;
-                                const days = Math.floor(hours / 24);
-                                return `${days}d ago`;
-                              })()}
-                        </span>
-                      ) : null}
-                    </span>
-                  ) : (
-                    <span>
-                      Room: <span className="theme-accent">general</span>
-                    </span>
-                  )}
+                <div className="rounded-full border px-4 py-2 text-sm font-semibold theme-chip">
+                  Room: <span className="theme-accent">{room}</span>
                 </div>
               </div>
             </header>
@@ -212,15 +151,23 @@ const GeneralChatClient = () => {
 
             <PrivacyBlurOverlay visible={privacy.isBlurred} />
 
-            <ChatFeed currentUser={username} room={chatRoom} token={token} isPriority={isPriority} />
-            <ChatForm token={token} room={chatRoom} />
+            <ChatFeed currentUser={username} room={room} token={token} isPriority={isPriority} />
+            <ChatForm token={token} room={room} />
           </section>
+
+          <div className="hidden lg:block">
+            <ChatDetailsPanel
+              title={room}
+              subtitle="Room chat"
+              onVideoCall={joinOrStartCall}
+            />
+          </div>
         </div>
       ) : (
         <div className="mx-auto flex min-h-[calc(100vh-2rem)] w-full max-w-md items-center justify-center">
           <LoginCard
-            title="Enter the lobby"
-            subtitle="Pick a username, then use the same 4–5 letter password to come back." 
+            title="Join room"
+            subtitle={`Entering ${room}. Use the same password to return.`}
             onSubmit={async ({ name, password, profileFile }) => {
               const result = await auth.login({ name, password });
 
@@ -246,32 +193,31 @@ const GeneralChatClient = () => {
         </div>
       )}
 
-      {isUserListOpen ? (
-        <div className="fixed inset-0 z-50 flex md:hidden">
+      {isDetailsOpen ? (
+        <div className="fixed inset-0 z-50 flex lg:hidden">
           <button
             type="button"
             className="absolute inset-0 bg-black/50"
-            aria-label="Close players"
-            onClick={() => setIsUserListOpen(false)}
+            aria-label="Close details"
+            onClick={() => setIsDetailsOpen(false)}
           />
-          <div className="relative h-full w-[86vw] max-w-sm animate-[slideIn_0.2s_ease-out]">
-            <div className="absolute right-3 top-3 z-10">
+          <div className="relative ml-auto h-full w-[86vw] max-w-sm animate-[slideIn_0.2s_ease-out]">
+            <div className="absolute left-3 top-3 z-10">
               <button
                 type="button"
-                onClick={() => setIsUserListOpen(false)}
+                onClick={() => setIsDetailsOpen(false)}
                 className="rounded-full border px-3 py-1 text-xs font-semibold theme-chip"
               >
                 Close
               </button>
             </div>
-            <UserListSidebar
-              currentUser={username}
-              token={token}
-              onSelectUser={(user) => {
-                setSelectedUser(user === username ? null : user);
-                setIsUserListOpen(false);
+            <ChatDetailsPanel
+              title={room}
+              subtitle="Room chat"
+              onVideoCall={() => {
+                setIsDetailsOpen(false);
+                void joinOrStartCall();
               }}
-              className="h-full max-h-none w-full rounded-none border-r"
             />
           </div>
         </div>
@@ -280,4 +226,4 @@ const GeneralChatClient = () => {
   );
 };
 
-export { GeneralChatClient };
+export { RoomChatClient };

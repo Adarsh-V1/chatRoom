@@ -3,7 +3,7 @@
 import React, { useMemo, useState } from "react";
 import { motion } from "framer-motion";
 
-import { ProfilePhotoPicker } from "@/src/componnets/profile/ProfilePhotoPicker";
+import { ProfilePhotoPicker } from "@/src/features/profile/ProfilePhotoPicker";
 
 type SubmitArgs = {
   name: string;

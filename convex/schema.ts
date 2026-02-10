@@ -88,6 +88,15 @@ export default defineSchema({
     lastPingAt: v.number(),
   }).index("by_userId", ["userId"]),
 
+  typingIndicators: defineTable({
+    room: v.string(),
+    userId: v.id("users"),
+    userName: v.string(),
+    updatedAt: v.number(),
+  })
+    .index("by_room_user", ["room", "userId"])
+    .index("by_room_updatedAt", ["room", "updatedAt"]),
+
   calls: defineTable({
     roomId: v.string(),
     conversationId: v.string(),

@@ -2,7 +2,7 @@
 
 import React, { useEffect, useMemo, useRef } from "react";
 
-import { Avatar } from "@/src/componnets/ui/Avatar";
+import { Avatar } from "@/src/features/ui/Avatar";
 
 type Props = {
   nameForFallback: string;

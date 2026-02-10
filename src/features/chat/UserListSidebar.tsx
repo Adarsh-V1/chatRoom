@@ -1,5 +1,6 @@
 "use client";
 
+import { useMemo, useState } from "react";
 import { useMutation, useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
 
@@ -7,10 +8,26 @@ interface UserListSidebarProps {
   currentUser: string;
   token: string;
   onSelectUser: (user: string) => void;
+  selectedUser?: string | null;
   className?: string;
+  title?: string;
+  subtitle?: string;
+  searchPlaceholder?: string;
+  emptyLabel?: string;
 }
 
-const UserListSidebar = ({ currentUser, token, onSelectUser, className }: UserListSidebarProps) => {
+const UserListSidebar = ({
+  currentUser,
+  token,
+  onSelectUser,
+  selectedUser,
+  className,
+  title,
+  subtitle,
+  searchPlaceholder,
+  emptyLabel,
+}: UserListSidebarProps) => {
+  const [query, setQuery] = useState("");
   const users = useQuery(api.users.listUsersWithProfiles);
   const priorityUsers = useQuery(api.priorities.getUserPriorities, { token });
   const setUserPriority = useMutation(api.priorities.setUserPriority);
@@ -30,6 +47,11 @@ const UserListSidebar = ({ currentUser, token, onSelectUser, className }: UserLi
   const me = (users ?? []).find((u) => u.name === currentUser);
 
   const otherUsers = (users ?? []).filter((u) => u.name !== currentUser);
+  const filteredUsers = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    if (!q) return otherUsers;
+    return otherUsers.filter((u) => u.name.toLowerCase().includes(q));
+  }, [otherUsers, query]);
 
   const statusMap = new Map(
     (statuses ?? []).map((s) => [s.name.toLowerCase(), s] as const)
@@ -54,15 +76,26 @@ const UserListSidebar = ({ currentUser, token, onSelectUser, className }: UserLi
   return (
     <aside
       className={
-        "flex h-auto max-h-[45vh] w-full flex-col rounded-2xl border theme-panel p-4 shadow backdrop-blur md:h-[calc(100vh-3rem)] md:max-h-none md:w-80" +
+        "flex h-full min-h-[60vh] w-full flex-col rounded-2xl border theme-panel p-4 shadow backdrop-blur lg:h-[calc(100vh-3rem)] lg:w-72" +
         (className ? ` ${className}` : "")
       }
     >
       <div className="mb-3">
-        <div className="text-xs font-semibold tracking-widest theme-faint">PLAYERS</div>
-        <div className="mt-1 text-sm theme-muted">
-          Click a name for direct chat.
+        <div className="text-xs font-semibold tracking-widest theme-faint">
+          {title ?? "PLAYERS"}
         </div>
+        <div className="mt-1 text-sm theme-muted">
+          {subtitle ?? "Click a name for direct chat."}
+        </div>
+      </div>
+
+      <div className="mb-3">
+        <input
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+          placeholder={searchPlaceholder ?? "Search here..."}
+          className="w-full rounded-xl border px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-cyan-400/40 theme-input"
+        />
       </div>
 
       <div className="mb-3 rounded-xl border px-3 py-2 theme-card">
@@ -89,12 +122,24 @@ const UserListSidebar = ({ currentUser, token, onSelectUser, className }: UserLi
       </div>
 
       <ul className="min-h-0 flex-1 space-y-2 overflow-y-auto pr-1">
-        {otherUsers.length > 0 ? (
-          otherUsers.map((user) => (
+        {filteredUsers.length > 0 ? (
+          filteredUsers.map((user) => (
             <li
               key={user.name}
-              className="cursor-pointer rounded-xl border px-3 py-2 text-sm font-semibold shadow-sm transition hover:ring-1 hover:ring-cyan-400/20 theme-chip"
+              className={
+                "cursor-pointer rounded-xl border px-3 py-2 text-sm font-semibold shadow-sm transition hover:ring-1 hover:ring-cyan-400/20 theme-chip" +
+                (selectedUser === user.name ? " ring-1 ring-cyan-400/40" : "")
+              }
+              role="button"
+              tabIndex={0}
               onClick={() => onSelectUser(user.name)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" || e.key === " ") {
+                  e.preventDefault();
+                  onSelectUser(user.name);
+                }
+              }}
+              aria-pressed={selectedUser === user.name}
             >
               {(() => {
                 const status = statusMap.get(user.name.toLowerCase());
@@ -163,7 +208,7 @@ const UserListSidebar = ({ currentUser, token, onSelectUser, className }: UserLi
           ))
         ) : (
           <li className="rounded-xl border px-3 py-3 text-sm theme-faint theme-card">
-            No other players yet.
+            {emptyLabel ?? "No matching players."}
           </li>
         )}
       </ul>

@@ -4,6 +4,7 @@ import "./globals.css";
 import "@livekit/components-styles";
 import { ConvexClientProvider } from "./ConvexClientProvider";
 import { ThemeProvider } from "./ThemeProvider";
+import { AppShell } from "@/src/features/navigation/AppShell";
 
 
 const geistSans = Geist({
@@ -49,7 +50,7 @@ export default function RootLayout({
       >
         <ThemeProvider>
           <ConvexClientProvider convexUrl={convexUrl}>
-            {children}
+            <AppShell>{children}</AppShell>
           </ConvexClientProvider>
         </ThemeProvider>
       </body>

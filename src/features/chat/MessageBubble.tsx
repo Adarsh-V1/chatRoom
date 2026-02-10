@@ -3,7 +3,7 @@
 import React from "react";
 import { motion } from "framer-motion";
 
-import { Avatar } from "@/src/componnets/ui/Avatar";
+import { Avatar } from "@/src/features/ui/Avatar";
 
 export type ChatMessage = {
   _id: string;
@@ -50,7 +50,7 @@ export function MessageBubble({ msg, isMe, isRevealed, onReveal, onDelete }: Pro
       transition={{ duration: 0.18 }}
       className={"flex items-end gap-2 " + (isMe ? "justify-end" : "justify-start")}
     >
-      {isMe ? null : <Avatar name={name} url={msg.profilePictureUrl} size="sm" />}
+      {isMe ? null : <Avatar name={name} url={msg.profilePictureUrl} size="md" />}
 
       <div
         className={
@@ -60,17 +60,17 @@ export function MessageBubble({ msg, isMe, isRevealed, onReveal, onDelete }: Pro
             : "theme-panel-strong theme-text")
         }
       >
-        <div className="mb-0.5 flex items-center justify-between gap-2">
+        <div className="mb-1 flex items-center justify-between gap-2">
           <div className="flex min-w-0 items-center gap-2">
-            <div className="truncate text-xs font-semibold theme-muted">{name}</div>
+            <div className="truncate text-sm font-semibold theme-muted">{name}</div>
             {msg.kind === "file" ? (
-              <div className="rounded-full border px-2 py-0.5 text-[10px] font-semibold theme-chip">
+              <div className="rounded-full border px-2 py-0.5 text-[11px] font-semibold theme-chip">
                 FILE
               </div>
             ) : null}
           </div>
           {timeLabel ? (
-            <div className="shrink-0 text-[10px] font-semibold theme-faint">
+            <div className="shrink-0 text-[11px] font-semibold theme-faint">
               {timeLabel}
             </div>
           ) : null}
@@ -85,7 +85,7 @@ export function MessageBubble({ msg, isMe, isRevealed, onReveal, onDelete }: Pro
         ) : null}
 
         {showContent ? (
-          msg.message ? <div className="wrap-break-word text-sm">{msg.message}</div> : null
+          msg.message ? <div className="wrap-break-word text-base">{msg.message}</div> : null
         ) : (
           <button
             type="button"
@@ -126,7 +126,7 @@ export function MessageBubble({ msg, isMe, isRevealed, onReveal, onDelete }: Pro
         ) : null}
       </div>
 
-      {isMe ? <Avatar name={name} url={msg.profilePictureUrl} size="sm" /> : null}
+      {isMe ? <Avatar name={name} url={msg.profilePictureUrl} size="md" /> : null}
     </motion.div>
   );
 }

@@ -8,7 +8,7 @@ type Props = {
 
 const RoomChatClient = dynamic(
   () =>
-    import("@/src/componnets/chat/RoomChatClient").then((m) => m.RoomChatClient),
+    import("@/src/features/chat/RoomChatClient").then((m) => m.RoomChatClient),
   {
     ssr: false,
     loading: () => (

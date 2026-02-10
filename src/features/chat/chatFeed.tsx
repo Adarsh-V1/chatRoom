@@ -6,7 +6,7 @@ import { useMutation, useQuery } from "convex/react";
 
 import { api } from "@/convex/_generated/api";
 import type { Id } from "@/convex/_generated/dataModel";
-import { MessageBubble, type ChatMessage } from "@/src/componnets/chat/MessageBubble";
+import { MessageBubble, type ChatMessage } from "@/src/features/chat/MessageBubble";
 import { AwaySummaryCard } from "@/src/features/awaySummary/AwaySummaryCard";
 
 interface ChatFeedProps {
@@ -26,6 +26,11 @@ const ChatFeed = ({ currentUser, room, token, isPriority }: ChatFeedProps) => {
 
   const latestSummary = useQuery(
     api.unread.getLatestSummary,
+    token ? { token, room } : "skip"
+  );
+
+  const typingUsers = useQuery(
+    api.typing.getTypingUsers,
     token ? { token, room } : "skip"
   );
 
@@ -104,6 +109,7 @@ const ChatFeed = ({ currentUser, room, token, isPriority }: ChatFeedProps) => {
 
     const last = feed?.[count - 1] as unknown as { username?: string; message?: string };
     if (!last || (last.username ?? "") === currentUser) {
+      setStickToBottom(true);
       lastCountRef.current = count;
       return;
     }
@@ -114,6 +120,14 @@ const ChatFeed = ({ currentUser, room, token, isPriority }: ChatFeedProps) => {
     if (toastTimer.current) clearTimeout(toastTimer.current);
     toastTimer.current = setTimeout(() => setToast(null), 2800);
     lastCountRef.current = count;
+  }, [feed, currentUser]);
+
+  useEffect(() => {
+    if (!feed || feed.length === 0) return;
+    const last = feed[feed.length - 1] as unknown as { username?: string };
+    if ((last.username ?? "") === currentUser) {
+      setStickToBottom(true);
+    }
   }, [feed, currentUser]);
 
   useEffect(() => {
@@ -202,11 +216,25 @@ const ChatFeed = ({ currentUser, room, token, isPriority }: ChatFeedProps) => {
                 );
               })}
             </AnimatePresence>
+            {typingUsers && typingUsers.length > 0 ? (
+              <div className="px-2 text-sm font-semibold theme-faint">
+                {typingUsers.length === 1
+                  ? `${typingUsers[0].name} is typing…`
+                  : `${typingUsers.map((u) => u.name).join(", ")} are typing…`}
+              </div>
+            ) : null}
             <div ref={bottomRef} />
           </div>
         ) : (
-          <div className="flex h-full items-center justify-center text-sm theme-faint">
-            No messages yet.
+          <div className="flex h-full flex-col items-center justify-center gap-2 text-sm theme-faint">
+            <div>No messages yet.</div>
+            {typingUsers && typingUsers.length > 0 ? (
+              <div className="text-sm font-semibold theme-faint">
+                {typingUsers.length === 1
+                  ? `${typingUsers[0].name} is typing…`
+                  : `${typingUsers.map((u) => u.name).join(", ")} are typing…`}
+              </div>
+            ) : null}
           </div>
         )}
       </div>

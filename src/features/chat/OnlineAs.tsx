@@ -4,7 +4,7 @@ import React from "react";
 import { useQuery } from "convex/react";
 
 import { api } from "@/convex/_generated/api";
-import { Avatar } from "@/src/componnets/ui/Avatar";
+import { Avatar } from "@/src/features/ui/Avatar";
 
 type Props = {
   token: string;

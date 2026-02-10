@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { useMutation, useQuery } from "convex/react";
 
 import { api } from "@/convex/_generated/api";
-import { clearAuth, loadAuth, saveAuth } from "@/src/componnets/auth/authStorage";
+import { clearAuth, loadAuth, saveAuth } from "@/src/features/auth/authStorage";
 
 type LoginArgs = {
   name: string;

@@ -6,8 +6,27 @@ type Props = {
   onLeave: () => Promise<void> | void;
   onToggleMic: () => Promise<void> | void;
   onToggleCam: () => Promise<void> | void;
+  onFlipCam: () => Promise<void> | void;
+  onToggleShare: () => Promise<void> | void;
+  onTogglePip: () => void;
+  onToggleBlur: () => void;
+  onReconnect: () => void;
+  onToggleRecord: () => void;
+  onToggleChat: () => void;
+  onToggleAutoGain: () => void;
+  onToggleMuteOnJoin: () => void;
   micEnabled: boolean;
   camEnabled: boolean;
+  canFlipCam: boolean;
+  isFlipping: boolean;
+  isSharing: boolean;
+  pipEnabled: boolean;
+  blurEnabled: boolean;
+  isRecording: boolean;
+  chatOpen: boolean;
+  autoGainEnabled: boolean;
+  muteOnJoin: boolean;
+  qualityLabel: string;
 };
 
 function IconMic(props: { muted: boolean }) {
@@ -129,7 +148,32 @@ function IconCam(props: { off: boolean }) {
   );
 }
 
-export function CallControls({ onLeave, onToggleMic, onToggleCam, micEnabled, camEnabled }: Props) {
+export function CallControls({
+  onLeave,
+  onToggleMic,
+  onToggleCam,
+  onFlipCam,
+  onToggleShare,
+  onTogglePip,
+  onToggleBlur,
+  onReconnect,
+  onToggleRecord,
+  onToggleChat,
+  onToggleAutoGain,
+  onToggleMuteOnJoin,
+  micEnabled,
+  camEnabled,
+  canFlipCam,
+  isFlipping,
+  isSharing,
+  pipEnabled,
+  blurEnabled,
+  isRecording,
+  chatOpen,
+  autoGainEnabled,
+  muteOnJoin,
+  qualityLabel,
+}: Props) {
   const [busy, setBusy] = useState<"mic" | "cam" | "leave" | null>(null);
 
   const toggleMic = async () => {
@@ -163,11 +207,14 @@ export function CallControls({ onLeave, onToggleMic, onToggleCam, micEnabled, ca
   };
 
   const baseBtn =
-    "inline-flex items-center justify-center gap-2 rounded-xl border px-4 py-3 text-base font-semibold focus:outline-none focus:ring-2 active:scale-[0.98]";
+    "inline-flex items-center justify-center gap-2 rounded-xl border px-3 py-2 text-sm font-semibold focus:outline-none focus:ring-2 active:scale-[0.98] sm:px-4 sm:py-3 sm:text-base";
 
   return (
     <div className="mx-auto w-full max-w-2xl rounded-2xl border border-white/10 bg-slate-950/60 p-2 shadow backdrop-blur">
       <div className="flex flex-wrap items-center justify-center gap-2">
+        <div className="rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-xs font-semibold text-slate-200">
+          {qualityLabel}
+        </div>
         <button
           type="button"
           onClick={toggleMic}
@@ -192,6 +239,106 @@ export function CallControls({ onLeave, onToggleMic, onToggleCam, micEnabled, ca
         >
           <IconCam off={!camEnabled} />
           {camEnabled ? "Camera" : "Camera off"}
+        </button>
+
+        <button
+          type="button"
+          onClick={onFlipCam}
+          disabled={!canFlipCam || isFlipping}
+          className={
+            baseBtn +
+            " border-white/10 bg-white/5 text-slate-100 hover:bg-white/10 focus:ring-cyan-400/40 disabled:cursor-not-allowed disabled:opacity-60"
+          }
+        >
+          {isFlipping ? "Switching" : "Flip"}
+        </button>
+
+        <button
+          type="button"
+          onClick={onToggleShare}
+          className={
+            baseBtn +
+            " border-white/10 bg-white/5 text-slate-100 hover:bg-white/10 focus:ring-cyan-400/40"
+          }
+        >
+          {isSharing ? "Stop share" : "Share"}
+        </button>
+
+        <button
+          type="button"
+          onClick={onToggleRecord}
+          className={
+            baseBtn +
+            " border-white/10 bg-white/5 text-slate-100 hover:bg-white/10 focus:ring-cyan-400/40"
+          }
+        >
+          {isRecording ? "Stop rec" : "Record"}
+        </button>
+
+        <button
+          type="button"
+          onClick={onToggleChat}
+          className={
+            baseBtn +
+            " border-white/10 bg-white/5 text-slate-100 hover:bg-white/10 focus:ring-cyan-400/40"
+          }
+        >
+          {chatOpen ? "Hide chat" : "Chat"}
+        </button>
+
+        <button
+          type="button"
+          onClick={onTogglePip}
+          className={
+            baseBtn +
+            " border-white/10 bg-white/5 text-slate-100 hover:bg-white/10 focus:ring-cyan-400/40"
+          }
+        >
+          {pipEnabled ? "PiP on" : "PiP off"}
+        </button>
+
+        <button
+          type="button"
+          onClick={onToggleBlur}
+          className={
+            baseBtn +
+            " border-white/10 bg-white/5 text-slate-100 hover:bg-white/10 focus:ring-cyan-400/40"
+          }
+        >
+          {blurEnabled ? "Blur on" : "Blur off"}
+        </button>
+
+        <button
+          type="button"
+          onClick={onToggleAutoGain}
+          className={
+            baseBtn +
+            " border-white/10 bg-white/5 text-slate-100 hover:bg-white/10 focus:ring-cyan-400/40"
+          }
+        >
+          {autoGainEnabled ? "AGC on" : "AGC off"}
+        </button>
+
+        <button
+          type="button"
+          onClick={onToggleMuteOnJoin}
+          className={
+            baseBtn +
+            " border-white/10 bg-white/5 text-slate-100 hover:bg-white/10 focus:ring-cyan-400/40"
+          }
+        >
+          {muteOnJoin ? "Mute join" : "Live join"}
+        </button>
+
+        <button
+          type="button"
+          onClick={onReconnect}
+          className={
+            baseBtn +
+            " border-white/10 bg-white/5 text-slate-100 hover:bg-white/10 focus:ring-cyan-400/40"
+          }
+        >
+          Reconnect
         </button>
 
         <button

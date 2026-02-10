@@ -16,6 +16,7 @@ import type * as lib_session from "../lib/session.js";
 import type * as presence from "../presence.js";
 import type * as priorities from "../priorities.js";
 import type * as settings from "../settings.js";
+import type * as typing from "../typing.js";
 import type * as unread from "../unread.js";
 import type * as users from "../users.js";
 import type * as webrtc from "../webrtc.js";
@@ -35,6 +36,7 @@ declare const fullApi: ApiFromModules<{
   presence: typeof presence;
   priorities: typeof priorities;
   settings: typeof settings;
+  typing: typeof typing;
   unread: typeof unread;
   users: typeof users;
   webrtc: typeof webrtc;

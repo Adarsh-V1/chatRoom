@@ -19,6 +19,7 @@ import { ThemeToggle } from "@/src/componnets/theme/ThemeToggle";
 
 const GeneralChatClient = () => {
   const [selectedUser, setSelectedUser] = useState<string | null>(null);
+  const [isUserListOpen, setIsUserListOpen] = useState(false);
   const router = useRouter();
 
   const auth = useChatAuth();
@@ -62,6 +63,13 @@ const GeneralChatClient = () => {
       : "skip"
   );
 
+  const selectedStatus = useQuery(
+    api.presence.getUserStatuses,
+    auth.isLoggedIn && selectedUser ? { token, names: [selectedUser] } : "skip"
+  );
+
+  const selectedPresence = selectedStatus?.[0];
+
   const isPriority = Boolean(
     selectedUser && selectedUser !== username
       ? userPriority?.priority
@@ -86,11 +94,13 @@ const GeneralChatClient = () => {
     <main className="min-h-screen w-full theme-page p-4 sm:p-6">
       {auth.isLoggedIn ? (
         <div className="mx-auto flex w-full max-w-none flex-col gap-4 md:flex-row">
-          <UserListSidebar
-            currentUser={username}
-            token={token}
-            onSelectUser={(user) => setSelectedUser(user === username ? null : user)}
-          />
+          <div className="hidden md:block">
+            <UserListSidebar
+              currentUser={username}
+              token={token}
+              onSelectUser={(user) => setSelectedUser(user === username ? null : user)}
+            />
+          </div>
           <section className="relative flex h-auto min-h-[60vh] flex-1 flex-col rounded-2xl border theme-panel p-4 shadow backdrop-blur md:h-[calc(100vh-3rem)]">
             <header className="mb-3 flex flex-wrap items-center justify-between gap-2">
               <div>
@@ -101,6 +111,14 @@ const GeneralChatClient = () => {
               </div>
 
               <div className="flex flex-wrap items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setIsUserListOpen(true)}
+                  className="inline-flex items-center justify-center rounded-full border px-3 py-2 text-xs font-semibold shadow-sm focus:outline-none focus:ring-2 focus:ring-cyan-400/40 active:scale-[0.98] theme-chip md:hidden"
+                  aria-label="Open players"
+                >
+                  Players
+                </button>
                 <FocusModeToggle token={token} />
                 <PrivacyToggleButton
                   isOn={privacy.manualPrivacy}
@@ -141,6 +159,25 @@ const GeneralChatClient = () => {
                   {selectedUser && selectedUser !== username ? (
                     <span>
                       Direct: <span className="theme-accent">{selectedUser}</span>
+                      {selectedPresence ? (
+                        <span className="ml-2 text-xs font-semibold theme-faint">
+                          {selectedPresence.online
+                            ? "Online"
+                            : "Last seen " +
+                              (() => {
+                                const ts = selectedPresence.lastSeenAt;
+                                if (!ts) return "unknown";
+                                const diffMs = Date.now() - ts;
+                                const mins = Math.floor(diffMs / 60000);
+                                if (mins < 1) return "just now";
+                                if (mins < 60) return `${mins}m ago`;
+                                const hours = Math.floor(mins / 60);
+                                if (hours < 24) return `${hours}h ago`;
+                                const days = Math.floor(hours / 24);
+                                return `${days}d ago`;
+                              })()}
+                        </span>
+                      ) : null}
                     </span>
                   ) : (
                     <span>
@@ -208,6 +245,37 @@ const GeneralChatClient = () => {
           />
         </div>
       )}
+
+      {isUserListOpen ? (
+        <div className="fixed inset-0 z-50 flex md:hidden">
+          <button
+            type="button"
+            className="absolute inset-0 bg-black/50"
+            aria-label="Close players"
+            onClick={() => setIsUserListOpen(false)}
+          />
+          <div className="relative h-full w-[86vw] max-w-sm animate-[slideIn_0.2s_ease-out]">
+            <div className="absolute right-3 top-3 z-10">
+              <button
+                type="button"
+                onClick={() => setIsUserListOpen(false)}
+                className="rounded-full border px-3 py-1 text-xs font-semibold theme-chip"
+              >
+                Close
+              </button>
+            </div>
+            <UserListSidebar
+              currentUser={username}
+              token={token}
+              onSelectUser={(user) => {
+                setSelectedUser(user === username ? null : user);
+                setIsUserListOpen(false);
+              }}
+              className="h-full max-h-none w-full rounded-none border-r"
+            />
+          </div>
+        </div>
+      ) : null}
     </main>
   );
 };

@@ -195,3 +195,14 @@ html[data-theme="light"] .text-cyan-100,
 html[data-theme="light"] .text-cyan-200 {
   color: var(--text-1);
 }
+
+@keyframes slideIn {
+  from {
+    transform: translateX(-12px);
+    opacity: 0;
+  }
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}

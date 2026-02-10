@@ -152,6 +152,22 @@ export const addFileChat = mutation({
   },
 });
 
+export const softDeleteChat = mutation({
+  args: { token: v.string(), chatId: v.id("chats") },
+  handler: async (ctx, args) => {
+    const { user } = await requireUserForToken(ctx, args.token);
+    const chat = await ctx.db.get(args.chatId);
+    if (!chat) return;
+    if (!chat.userId || chat.userId !== user._id) return;
+    if (chat.deletedAt) return;
+
+    await ctx.db.patch(chat._id, {
+      deletedAt: Date.now(),
+      deletedBy: user._id,
+    });
+  },
+});
+
 export const getChats = query({
   args: { room: v.string() },
   handler: async (ctx, args) => {

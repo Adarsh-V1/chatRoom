@@ -19,12 +19,47 @@ export function useChatAuth() {
   const name = auth?.name ?? null;
 
   const loginOrRegister = useMutation(api.auth.loginOrRegister);
+  const touchSession = useMutation(api.auth.touchSession);
+  const pingPresence = useMutation(api.presence.ping);
 
   const me = useQuery(api.auth.getSessionUser, token ? { token } : "skip");
 
   useEffect(() => {
     setHydrated(true);
   }, []);
+
+  useEffect(() => {
+    if (!token) return;
+
+    let cancelled = false;
+
+    const ping = async () => {
+      if (cancelled) return;
+      try {
+        await touchSession({ token });
+        await pingPresence({ token });
+      } catch {
+        // Ignore transient errors.
+      }
+    };
+
+    void ping();
+    const interval = setInterval(ping, 20_000);
+
+    const handleVisibility = () => {
+      if (document.visibilityState === "visible") {
+        void ping();
+      }
+    };
+
+    document.addEventListener("visibilitychange", handleVisibility);
+
+    return () => {
+      cancelled = true;
+      clearInterval(interval);
+      document.removeEventListener("visibilitychange", handleVisibility);
+    };
+  }, [token, touchSession, pingPresence]);
 
   useEffect(() => {
     if (!token) return;

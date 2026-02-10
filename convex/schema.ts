@@ -13,6 +13,9 @@ export default defineSchema({
     fileType: v.optional(v.string()),
     fileSize: v.optional(v.number()),
 
+    deletedAt: v.optional(v.number()),
+    deletedBy: v.optional(v.id("users")),
+
     // Developer Context Chat (optional)
     contextType: v.optional(
       v.union(v.literal("file"), v.literal("snippet"), v.literal("task"))
@@ -79,6 +82,11 @@ export default defineSchema({
   })
     .index("by_token", ["token"])
     .index("by_userId", ["userId"]),
+
+  userPresence: defineTable({
+    userId: v.id("users"),
+    lastPingAt: v.number(),
+  }).index("by_userId", ["userId"]),
 
   calls: defineTable({
     roomId: v.string(),

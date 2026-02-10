@@ -32,6 +32,7 @@ export default function CallRoomPage() {
   const [remoteStream, setRemoteStream] = useState<MediaStream | null>(null);
   const [micEnabled, setMicEnabled] = useState(true);
   const [camEnabled, setCamEnabled] = useState(true);
+  const [rtcReady, setRtcReady] = useState(false);
 
   const peerRef = useRef<RTCPeerConnection | null>(null);
   const localStreamRef = useRef<MediaStream | null>(null);
@@ -142,6 +143,7 @@ export default function CallRoomPage() {
     setError(null);
     setMediaError(null);
     setIsConnecting(true);
+    setRtcReady(false);
     processedSignalsRef.current = new Set();
     pendingIceRef.current = [];
     sentOfferRef.current = false;
@@ -191,6 +193,7 @@ export default function CallRoomPage() {
       setLocalStream(stream);
       stream.getTracks().forEach((track) => pc.addTrack(track, stream));
       setIsConnecting(false);
+      setRtcReady(true);
     };
 
     setup().catch((err) => {
@@ -209,15 +212,16 @@ export default function CallRoomPage() {
       localStreamRef.current = null;
       setLocalStream(null);
       setRemoteStream(null);
+      setRtcReady(false);
     };
   }, [auth.isReady, auth.token, auth.name, roomId, call, sendSignal]);
 
   useEffect(() => {
     if (!auth.token || !roomId) return;
     if (!isStarter) return;
-    if (!peerRef.current || !localStreamRef.current) return;
+    if (!rtcReady) return;
     if (sentOfferRef.current) return;
-    if (peerRef.current.signalingState !== "stable") return;
+    if (!peerRef.current || peerRef.current.signalingState !== "stable") return;
 
     const run = async () => {
       try {
@@ -238,7 +242,7 @@ export default function CallRoomPage() {
     };
 
     void run();
-  }, [auth.token, roomId, isStarter, sendSignal]);
+  }, [auth.token, roomId, isStarter, sendSignal, rtcReady]);
 
   useEffect(() => {
     let cancelled = false;

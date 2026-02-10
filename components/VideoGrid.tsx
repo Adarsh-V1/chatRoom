@@ -16,12 +16,20 @@ export function VideoGrid({ localStream, remoteStream, localLabel, remoteLabel }
   useEffect(() => {
     if (localRef.current) {
       localRef.current.srcObject = localStream;
+      const playPromise = localRef.current.play();
+      if (playPromise && typeof playPromise.catch === "function") {
+        playPromise.catch(() => undefined);
+      }
     }
   }, [localStream]);
 
   useEffect(() => {
     if (remoteRef.current) {
       remoteRef.current.srcObject = remoteStream;
+      const playPromise = remoteRef.current.play();
+      if (playPromise && typeof playPromise.catch === "function") {
+        playPromise.catch(() => undefined);
+      }
     }
   }, [remoteStream]);
 

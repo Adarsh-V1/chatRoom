@@ -69,6 +69,44 @@ export const getUnreadMessages = query({
   },
 });
 
+export const getUnreadCountsForUsers = query({
+  args: { token: v.string(), otherNames: v.array(v.string()) },
+  handler: async (ctx, args) => {
+    const { user } = await requireUserForToken(ctx, args.token);
+    const meLower = user.nameLower ?? user.name.trim().toLowerCase();
+
+    const otherNames = args.otherNames
+      .map((n) => n.trim())
+      .filter(Boolean)
+      .slice(0, 80);
+
+    const results = [] as Array<{ name: string; unreadCount: number }>;
+
+    for (const otherName of otherNames) {
+      const otherLower = otherName.toLowerCase();
+      if (!otherLower || otherLower === meLower) {
+        results.push({ name: otherName, unreadCount: 0 });
+        continue;
+      }
+
+      const room = [meLower, otherLower].sort().join("-");
+      const lastReadCreationTime = await getLastReadCreationTime(ctx, user._id, room);
+
+      const unread = await ctx.db
+        .query("chats")
+        .filter((q) => q.eq(q.field("room"), room))
+        .filter((q) => q.gt(q.field("_creationTime"), lastReadCreationTime))
+        .order("asc")
+        .collect();
+
+      const unreadFromOthers = unread.filter((m) => !m.userId || m.userId !== user._id);
+      results.push({ name: otherName, unreadCount: unreadFromOthers.length });
+    }
+
+    return results;
+  },
+});
+
 export const markRead = mutation({
   args: { token: v.string(), room: v.string(), lastReadCreationTime: v.number() },
   handler: async (ctx, args) => {

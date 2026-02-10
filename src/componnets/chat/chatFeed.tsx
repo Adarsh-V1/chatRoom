@@ -1,65 +1,45 @@
 "use client";
 
-import React from "react";
-
+import React, { useEffect, useRef } from "react";
+import { AnimatePresence } from "framer-motion";
 import { useQuery } from "convex/react";
-import { api } from "@/convex/_generated/api";
-import type { Doc } from "@/convex/_generated/dataModel";
 
+import { api } from "@/convex/_generated/api";
+import { MessageBubble, type ChatMessage } from "@/src/componnets/chat/MessageBubble";
 
 interface ChatFeedProps {
-  currentUser?: string;
+  currentUser: string;
   room: string;
 }
 
 const ChatFeed = ({ currentUser, room }: ChatFeedProps) => {
   const feed = useQuery(api.chats.getChats, { room });
+  const bottomRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    bottomRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
+  }, [feed?.length, room]);
 
   return (
-    <div className="mt-1 flex h-[60vh] w-full flex-col overflow-y-auto rounded-2xl border border-white/10 bg-slate-950/30 p-4 shadow">
+    <div className="min-h-0 flex-1 overflow-y-auto rounded-2xl border border-white/10 bg-slate-950/30 p-3 shadow-inner">
       {feed && feed.length > 0 ? (
-        feed.map((chat: Doc<"chats">) => {
-          const isMe = currentUser === chat.username;
-          return (
-            <div
-              className={"mb-2 flex items-start " + (isMe ? "justify-end" : "justify-start")}
-              key={chat._id}
-            >
-              <div
-                className={
-                  "max-w-[85%] rounded-2xl border border-white/10 px-4 py-2 shadow-sm " +
-                  (isMe
-                    ? "bg-indigo-500/20 text-slate-50"
-                    : "bg-white/5 text-slate-100")
-                }
-              >
-                <div className="flex items-baseline justify-between gap-4">
-                  <span className="text-xs font-semibold tracking-wide text-slate-300">
-                    {chat.username}
-                  </span>
-                  {typeof chat._creationTime === "number" ? (
-                    <span className="text-[10px] text-slate-400">
-                      {new Date(chat._creationTime).toLocaleTimeString([], {
-                        hour: "2-digit",
-                        minute: "2-digit",
-                      })}
-                    </span>
-                  ) : null}
-                </div>
-                <div className="mt-1 whitespace-pre-wrap wrap-break-word text-sm leading-relaxed">
-                  {chat.message}
-                </div>
-              </div>
-            </div>
-          );
-        })
+        <div className="flex flex-col gap-2">
+          <AnimatePresence initial={false}>
+            {feed.map((chat) => {
+              const msg = chat as unknown as ChatMessage;
+              const isMe = (msg.username ?? "") === currentUser;
+              return <MessageBubble key={msg._id} msg={msg} isMe={isMe} />;
+            })}
+          </AnimatePresence>
+          <div ref={bottomRef} />
+        </div>
       ) : (
-        <div className="my-auto text-center text-sm text-slate-300">
+        <div className="flex h-full items-center justify-center text-sm text-slate-300">
           No messages yet.
         </div>
       )}
     </div>
   );
-}
+};
 
-export { ChatFeed }
+export { ChatFeed };

@@ -2,7 +2,11 @@
 
 import React, { useMemo, useState } from "react";
 import { motion } from "framer-motion";
-
+import { LockKeyhole, UserRound } from "lucide-react";
+import { Badge } from "@/src/components/ui/badge";
+import { Button } from "@/src/components/ui/button";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/src/components/ui/card";
+import { Input } from "@/src/components/ui/input";
 import { ProfilePhotoPicker } from "@/src/features/profile/ProfilePhotoPicker";
 
 type SubmitArgs = {
@@ -25,87 +29,93 @@ export function LoginCard({ title, subtitle, onSubmit }: Props) {
   const [submitting, setSubmitting] = useState(false);
 
   const canSubmit = useMemo(() => {
-    const n = name.trim();
-    const p = password.trim();
-    return n.length > 0 && p.length > 0 && !submitting;
+    const trimmedName = name.trim();
+    const trimmedPassword = password.trim();
+    return trimmedName.length > 0 && trimmedPassword.length > 0 && !submitting;
   }, [name, password, submitting]);
 
   return (
-    <motion.form
-      initial={{ opacity: 0, y: 12 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.25 }}
-      onSubmit={async (e) => {
-        e.preventDefault();
-        setError(null);
-        const trimmedName = name.trim();
-        const trimmedPassword = password.trim();
-        if (!trimmedName || !trimmedPassword) return;
+    <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.25 }}>
+      <Card className="overflow-hidden">
+        <CardHeader className="border-b border-[color:var(--border-1)] bg-linear-to-r from-[rgba(224,235,248,0.96)] via-[rgba(231,242,251,0.92)] to-[rgba(248,233,197,0.84)]">
+          <div className="flex items-start justify-between gap-4">
+            <div>
+              <Badge variant="secondary" className="mb-3">Secure entry</Badge>
+              <CardTitle className="text-2xl">{title}</CardTitle>
+              {subtitle ? <CardDescription className="mt-2 max-w-md">{subtitle}</CardDescription> : null}
+            </div>
+            <div className="hidden rounded-2xl border border-cyan-300/60 bg-cyan-100/70 px-3 py-2 text-xs font-medium text-cyan-900 sm:block">
+              Modern light
+            </div>
+          </div>
+        </CardHeader>
 
-        setSubmitting(true);
-        try {
-          await onSubmit({ name: trimmedName, password: trimmedPassword, profileFile });
-        } catch (err) {
-          const message = err instanceof Error ? err.message : "Login failed";
-          setError(message);
-        } finally {
-          setSubmitting(false);
-        }
-      }}
-      className="w-full rounded-2xl border theme-card p-8 shadow backdrop-blur"
-    >
-      <div className="flex items-start justify-between gap-4">
-        <div>
-          <h2 className="text-xl font-bold theme-text">{title}</h2>
-          {subtitle ? <p className="mt-1 text-sm theme-muted">{subtitle}</p> : null}
-        </div>
-        <div className="hidden sm:block rounded-full border px-3 py-1 text-xs font-semibold theme-chip theme-muted">
-          LOGIN
-        </div>
-      </div>
+        <CardContent className="space-y-5 pt-6">
+          <ProfilePhotoPicker nameForFallback={name || "You"} file={profileFile} onFileChange={setProfileFile} />
 
-      <ProfilePhotoPicker nameForFallback={name || "You"} file={profileFile} onFileChange={setProfileFile} />
+          <form
+            onSubmit={async (e) => {
+              e.preventDefault();
+              setError(null);
+              const trimmedName = name.trim();
+              const trimmedPassword = password.trim();
+              if (!trimmedName || !trimmedPassword) return;
 
-      <label className="mt-5 block">
-        <div className="text-xs font-semibold tracking-widest theme-faint">USERNAME</div>
-        <input
-          value={name}
-          onChange={(e) => setName(e.target.value)}
-          placeholder="Your name…"
-          className="mt-2 w-full rounded-xl border px-4 py-3 focus:outline-none focus:ring-2 focus:ring-cyan-400/40 theme-input"
-          autoFocus
-        />
-      </label>
+              setSubmitting(true);
+              try {
+                await onSubmit({ name: trimmedName, password: trimmedPassword, profileFile });
+              } catch (err) {
+                const message = err instanceof Error ? err.message : "Login failed";
+                setError(message);
+              } finally {
+                setSubmitting(false);
+              }
+            }}
+            className="space-y-4"
+          >
+            <label className="block space-y-2">
+              <span className="text-xs font-semibold uppercase tracking-[0.22em] text-slate-500">Username</span>
+              <div className="relative">
+                <UserRound className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" aria-hidden="true" />
+                <Input
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  placeholder="Your name"
+                  className="pl-9"
+                  autoFocus
+                />
+              </div>
+            </label>
 
-      <label className="mt-4 block">
-        <div className="flex items-center justify-between">
-          <div className="text-xs font-semibold tracking-widest theme-faint">PASSWORD</div>
-          <div className="text-xs theme-faint">4–5 letters</div>
-        </div>
-        <input
-          value={password}
-          onChange={(e) => setPassword(e.target.value)}
-          placeholder="e.g. abcd"
-          type="password"
-          inputMode="text"
-          autoComplete="current-password"
-          className="mt-2 w-full rounded-xl border px-4 py-3 focus:outline-none focus:ring-2 focus:ring-cyan-400/40 theme-input"
-        />
-      </label>
+            <label className="block space-y-2">
+              <div className="flex items-center justify-between gap-3">
+                <span className="text-xs font-semibold uppercase tracking-[0.22em] text-slate-500">Password</span>
+                <span className="text-xs text-slate-400">Strong password recommended</span>
+              </div>
+              <div className="relative">
+                <LockKeyhole className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" aria-hidden="true" />
+                <Input
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  placeholder="Your password"
+                  type="password"
+                  inputMode="text"
+                  autoComplete="current-password"
+                  className="pl-9"
+                />
+              </div>
+            </label>
 
-      {error ? (
-        <div className="mt-4 rounded-xl border border-rose-500/20 bg-rose-500/10 px-4 py-3 text-sm text-rose-100">
-          {error}
-        </div>
-      ) : null}
+            {error ? (
+              <div className="rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">{error}</div>
+            ) : null}
 
-      <button
-        type="submit"
-        disabled={!canSubmit}
-        className="mt-5 w-full rounded-xl bg-indigo-500 px-4 py-3 font-semibold text-white shadow hover:bg-indigo-400 focus:outline-none focus:ring-2 focus:ring-indigo-400/70 disabled:cursor-not-allowed disabled:opacity-60 active:scale-[0.98]"
-      >
-        {submitting ? "Entering…" : "Enter"}
-      </button>
-    </motion.form>
+            <Button type="submit" className="w-full" size="lg" disabled={!canSubmit}>
+              {submitting ? "Entering..." : "Enter workspace"}
+            </Button>
+          </form>
+        </CardContent>
+      </Card>
+    </motion.div>
   );
 }

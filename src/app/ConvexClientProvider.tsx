@@ -1,48 +1,41 @@
 "use client";
 
-import { ReactNode, useEffect, useState } from "react";
+import { ReactNode, useMemo } from "react";
 import { ConvexProvider, ConvexReactClient } from "convex/react";
+import { PageShell } from "@/src/components/app/page-shell";
+import { Button } from "@/src/components/ui/button";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/src/components/ui/card";
 
 export function ConvexClientProvider({
-    children,
-    convexUrl,
+  children,
+  convexUrl,
 }: {
-    children: ReactNode;
-    convexUrl?: string;
+  children: ReactNode;
+  convexUrl?: string;
 }) {
-    const [client, setClient] = useState<ConvexReactClient | null>(null);
-    const [hydrated, setHydrated] = useState(false);
+  const client = useMemo(() => (convexUrl ? new ConvexReactClient(convexUrl) : null), [convexUrl]);
 
-    useEffect(() => {
-        setHydrated(true);
-    }, []);
+  if (!client) {
+    return (
+      <PageShell>
+        <div className="mx-auto flex min-h-[calc(100dvh-8rem)] max-w-2xl items-center justify-center">
+          <Card className="w-full">
+            <CardHeader>
+              <CardTitle>Convex is not configured</CardTitle>
+              <CardDescription>
+                Set <code>NEXT_PUBLIC_CONVEX_URL</code> in your environment and restart the development server.
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <Button variant="outline" onClick={() => window.location.reload()}>
+                Reload after configuring
+              </Button>
+            </CardContent>
+          </Card>
+        </div>
+      </PageShell>
+    );
+  }
 
-    useEffect(() => {
-        if (!convexUrl) {
-            setClient(null);
-            return;
-        }
-        setClient(new ConvexReactClient(convexUrl));
-    }, [convexUrl]);
-
-    if (!hydrated) {
-        return null;
-    }
-
-    if (!client) {
-        return (
-            <main className="min-h-screen w-full p-6">
-                <div className="mx-auto w-full max-w-2xl rounded-xl border border-black/10 p-6">
-                    <h1 className="text-lg font-semibold">Convex not configured</h1>
-                    <p className="mt-2 text-sm text-black/70">
-                        Set <span className="font-mono">NEXT_PUBLIC_CONVEX_URL</span> in your environment
-                        (or <span className="font-mono">.env.local</span>) and restart the server.
-                    </p>
-                </div>
-            </main>
-        );
-    }
-
-    return <ConvexProvider client={client}>{children}</ConvexProvider>;
+  return <ConvexProvider client={client}>{children}</ConvexProvider>;
 }
-

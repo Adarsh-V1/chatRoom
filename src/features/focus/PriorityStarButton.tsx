@@ -1,8 +1,9 @@
 "use client";
 
 import React, { useMemo } from "react";
+import { Star } from "lucide-react";
 import { useMutation, useQuery } from "convex/react";
-
+import { Button } from "@/src/components/ui/button";
 import { api } from "@/convex/_generated/api";
 
 type Props =
@@ -36,11 +37,10 @@ export function PriorityStarButton(props: Props) {
     return Boolean(userPriority?.priority);
   }, [props.kind, roomPriority?.priority, userPriority?.priority]);
 
-  const label = isOn ? "★" : "☆";
-
   return (
-    <button
-      type="button"
+    <Button
+      variant={isOn ? "default" : "outline"}
+      size="icon"
       onClick={() => {
         if (props.kind === "room") {
           void setRoomPriority({ token: props.token, room: props.room, priority: !isOn });
@@ -48,16 +48,11 @@ export function PriorityStarButton(props: Props) {
           void setUserPriority({ token: props.token, otherName: props.otherName, priority: !isOn });
         }
       }}
-      className={
-        "inline-flex h-9 w-9 items-center justify-center rounded-xl border text-sm font-bold shadow-sm backdrop-blur transition " +
-        (isOn
-          ? "border-indigo-400/20 bg-indigo-500/20 text-indigo-100 hover:bg-indigo-500/25"
-          : "border-white/10 bg-white/5 text-slate-100 hover:bg-white/10")
-      }
       aria-label={isOn ? "Priority on" : "Priority off"}
-      title={isOn ? "Priority" : "Mark as priority"}
+      title={isOn ? "Priority enabled" : "Mark as priority"}
+      className={isOn ? "border-amber-200 bg-amber-50 text-amber-700 hover:bg-amber-100 hover:border-amber-300" : undefined}
     >
-      {label}
-    </button>
+      <Star className="h-4 w-4" fill={isOn ? "currentColor" : "none"} aria-hidden="true" />
+    </Button>
   );
 }

@@ -32,7 +32,7 @@ export function AuthGate({ title, subtitle, children }: Props) {
       setToken(result.token);
 
       if (values.avatarFile) {
-        const uploadUrl = await generateUploadUrl({});
+        const uploadUrl = await generateUploadUrl({ token: result.token });
         const uploadResult = await fetch(uploadUrl, {
           method: "POST",
           headers: {
@@ -56,7 +56,7 @@ export function AuthGate({ title, subtitle, children }: Props) {
   if (!isReady) {
     return (
       <main className="min-h-screen w-full theme-page p-4 sm:p-6">
-        <div className="mx-auto flex min-h-[calc(100vh-2rem)] w-full max-w-md items-center justify-center">
+        <div className="mx-auto flex min-h-[calc(100dvh-2rem)] w-full max-w-md items-center justify-center">
           <div className="w-full rounded-2xl border theme-card p-8 shadow backdrop-blur">
             <div className="text-sm font-semibold theme-muted">Loading…</div>
           </div>
@@ -71,7 +71,7 @@ export function AuthGate({ title, subtitle, children }: Props) {
 
   return (
     <main className="min-h-screen w-full theme-page p-4 sm:p-6">
-      <div className="mx-auto flex min-h-[calc(100vh-2rem)] w-full max-w-md items-center justify-center">
+      <div className="mx-auto flex min-h-[calc(100dvh-2rem)] w-full max-w-md items-center justify-center">
         <LoginForm title={title} subtitle={subtitle} onSubmit={handleLogin} />
       </div>
     </main>

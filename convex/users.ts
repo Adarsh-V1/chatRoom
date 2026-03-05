@@ -4,7 +4,9 @@ import { ConvexError, v } from "convex/values";
 import { requireUserForToken } from "./lib/session";
 
 export const listUsers = query({
-  handler: async (ctx) => {
+  args: { token: v.string() },
+  handler: async (ctx, args) => {
+    await requireUserForToken(ctx, args.token);
     const users = await ctx.db.query("users").collect();
     users.sort((a, b) => a.name.localeCompare(b.name));
     return users.map((u) => u.name);
@@ -12,7 +14,9 @@ export const listUsers = query({
 });
 
 export const listUsersWithProfiles = query({
-  handler: async (ctx) => {
+  args: { token: v.string() },
+  handler: async (ctx, args) => {
+    await requireUserForToken(ctx, args.token);
     const users = await ctx.db.query("users").collect();
     users.sort((a, b) => a.name.localeCompare(b.name));
 
@@ -28,8 +32,9 @@ export const listUsersWithProfiles = query({
 });
 
 export const getUserProfile = query({
-  args: { name: v.string() },
+  args: { token: v.string(), name: v.string() },
   handler: async (ctx, args) => {
+    await requireUserForToken(ctx, args.token);
     const trimmed = args.name.trim();
     if (!trimmed) return null;
 

@@ -1,8 +1,15 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { Search, Star } from "lucide-react";
 import { useMutation, useQuery } from "convex/react";
+import { Badge } from "@/src/components/ui/badge";
+import { Button } from "@/src/components/ui/button";
+import { Card } from "@/src/components/ui/card";
+import { Input } from "@/src/components/ui/input";
+import { cn } from "@/src/lib/utils";
 import { api } from "@/convex/_generated/api";
+import { Avatar } from "@/src/features/ui/Avatar";
 
 interface UserListSidebarProps {
   currentUser: string;
@@ -28,21 +35,18 @@ const UserListSidebar = ({
   emptyLabel,
 }: UserListSidebarProps) => {
   const [query, setQuery] = useState("");
-  const users = useQuery(api.users.listUsersWithProfiles);
+  const [nowMs, setNowMs] = useState(() => Date.now());
+  const users = useQuery(
+    api.users.listUsersWithProfiles,
+    token ? { token } : "skip"
+  );
   const priorityUsers = useQuery(api.priorities.getUserPriorities, { token });
   const setUserPriority = useMutation(api.priorities.setUserPriority);
 
   const otherNames = (users ?? []).filter((u) => u.name !== currentUser).map((u) => u.name);
 
-  const statuses = useQuery(
-    api.presence.getUserStatuses,
-    token ? { token, names: otherNames } : "skip"
-  );
-
-  const unreadCounts = useQuery(
-    api.unread.getUnreadCountsForUsers,
-    token ? { token, otherNames } : "skip"
-  );
+  const statuses = useQuery(api.presence.getUserStatuses, token ? { token, names: otherNames } : "skip");
+  const unreadCounts = useQuery(api.unread.getUnreadCountsForUsers, token ? { token, otherNames } : "skip");
 
   const me = (users ?? []).find((u) => u.name === currentUser);
 
@@ -53,19 +57,19 @@ const UserListSidebar = ({
     return otherUsers.filter((u) => u.name.toLowerCase().includes(q));
   }, [otherUsers, query]);
 
-  const statusMap = new Map(
-    (statuses ?? []).map((s) => [s.name.toLowerCase(), s] as const)
-  );
+  const statusMap = new Map((statuses ?? []).map((status) => [status.name.toLowerCase(), status] as const));
+  const unreadMap = new Map((unreadCounts ?? []).map((status) => [status.name.toLowerCase(), status.unreadCount] as const));
 
-  const unreadMap = new Map(
-    (unreadCounts ?? []).map((s) => [s.name.toLowerCase(), s.unreadCount] as const)
-  );
+  useEffect(() => {
+    const id = setInterval(() => setNowMs(Date.now()), 30_000);
+    return () => clearInterval(id);
+  }, []);
 
   const formatLastSeen = (ts: number | null | undefined) => {
-    if (!ts) return "";
-    const diffMs = Date.now() - ts;
+    if (!ts) return "Unavailable";
+    const diffMs = nowMs - ts;
     const mins = Math.floor(diffMs / 60000);
-    if (mins < 1) return "just now";
+    if (mins < 1) return "Just now";
     if (mins < 60) return `${mins}m ago`;
     const hours = Math.floor(mins / 60);
     if (hours < 24) return `${hours}h ago`;
@@ -74,145 +78,94 @@ const UserListSidebar = ({
   };
 
   return (
-    <aside
-      className={
-        "flex h-full min-h-[60vh] w-full flex-col rounded-2xl border theme-panel p-4 shadow backdrop-blur lg:h-[calc(100vh-3rem)] lg:w-72" +
-        (className ? ` ${className}` : "")
-      }
-    >
-      <div className="mb-3">
-        <div className="text-xs font-semibold tracking-widest theme-faint">
-          {title ?? "PLAYERS"}
-        </div>
-        <div className="mt-1 text-sm theme-muted">
-          {subtitle ?? "Click a name for direct chat."}
-        </div>
+    <Card className={cn("flex h-full min-h-0 w-full flex-col overflow-hidden p-4", className)}>
+      <div className="mb-4 space-y-1">
+        <div className="text-xs font-semibold uppercase tracking-[0.22em] text-[color:var(--accent-text)]">{title ?? "People"}</div>
+        <div className="text-sm text-[color:var(--text-2)]">{subtitle ?? "Open a direct room or track who is online."}</div>
       </div>
 
-      <div className="mb-3">
-        <input
+      <div className="relative mb-4">
+        <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[color:var(--text-3)]" aria-hidden="true" />
+        <Input
           value={query}
           onChange={(e) => setQuery(e.target.value)}
-          placeholder={searchPlaceholder ?? "Search here..."}
-          className="w-full rounded-xl border px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-cyan-400/40 theme-input"
+          placeholder={searchPlaceholder ?? "Search teammates"}
+          className="pl-9"
         />
       </div>
 
-      <div className="mb-3 rounded-xl border px-3 py-2 theme-card">
-        <div className="text-xs theme-faint">You</div>
-        <div className="mt-1 flex items-center gap-3">
-          <div className="h-10 w-10 shrink-0 overflow-hidden rounded-xl border theme-panel-strong">
-            {me?.profilePictureUrl ? (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img
-                src={me.profilePictureUrl}
-                alt={currentUser}
-                className="h-full w-full object-cover"
-              />
-            ) : (
-              <div className="flex h-full w-full items-center justify-center text-xs font-bold theme-muted">
-                {currentUser.slice(0, 1).toUpperCase()}
-              </div>
-            )}
-          </div>
+      <Card className="mb-4 rounded-[24px] border-[color:var(--border-1)] bg-[color:rgba(216,228,243,0.88)] p-3 shadow-none">
+        <div className="text-xs font-semibold uppercase tracking-[0.2em] text-[color:var(--accent-text)]">You</div>
+        <div className="mt-3 flex items-center gap-3">
+          <Avatar name={currentUser} url={me?.profilePictureUrl} size="lg" />
           <div className="min-w-0">
-            <div className="truncate font-semibold theme-text">{currentUser}</div>
+            <div className="truncate text-sm font-semibold text-[color:var(--text-1)]">{currentUser}</div>
+            <div className="text-sm text-[color:var(--text-3)]">Available across chat and calls</div>
           </div>
         </div>
-      </div>
+      </Card>
 
       <ul className="min-h-0 flex-1 space-y-2 overflow-y-auto pr-1">
         {filteredUsers.length > 0 ? (
-          filteredUsers.map((user) => (
-            <li
-              key={user.name}
-              className={
-                "cursor-pointer rounded-xl border px-3 py-2 text-sm font-semibold shadow-sm transition hover:ring-1 hover:ring-cyan-400/20 theme-chip" +
-                (selectedUser === user.name ? " ring-1 ring-cyan-400/40" : "")
-              }
-              role="button"
-              tabIndex={0}
-              onClick={() => onSelectUser(user.name)}
-              onKeyDown={(e) => {
-                if (e.key === "Enter" || e.key === " ") {
-                  e.preventDefault();
-                  onSelectUser(user.name);
-                }
-              }}
-              aria-pressed={selectedUser === user.name}
-            >
-              {(() => {
-                const status = statusMap.get(user.name.toLowerCase());
-                const unread = unreadMap.get(user.name.toLowerCase()) ?? 0;
+          filteredUsers.map((user) => {
+            const status = statusMap.get(user.name.toLowerCase());
+            const unread = unreadMap.get(user.name.toLowerCase()) ?? 0;
+            const prioritized = (priorityUsers ?? []).includes(user.name.toLowerCase());
+            const selected = selectedUser === user.name;
 
-                return (
-              <div className="flex items-center gap-3">
-                <div className="h-9 w-9 shrink-0 overflow-hidden rounded-xl border theme-panel-strong">
-                  {user.profilePictureUrl ? (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img
-                      src={user.profilePictureUrl}
-                      alt={user.name}
-                      className="h-full w-full object-cover"
-                    />
-                  ) : (
-                    <div className="flex h-full w-full items-center justify-center text-xs font-bold theme-muted">
-                      {user.name.slice(0, 1).toUpperCase()}
+            return (
+              <li
+                key={user.name}
+                className={cn(
+                  "rounded-[24px] border border-[color:var(--border-1)] bg-[color:rgba(237,243,251,0.84)] p-3 shadow-sm transition hover:border-[color:var(--border-2)] hover:bg-[color:rgba(244,248,253,0.96)]",
+                  selected && "border-cyan-300/70 bg-cyan-100/70"
+                )}
+              >
+                <div className="flex items-center gap-3">
+                  <button
+                    type="button"
+                    onClick={() => onSelectUser(user.name)}
+                    className="flex min-w-0 flex-1 items-center gap-3 text-left"
+                    aria-pressed={selected}
+                  >
+                    <Avatar name={user.name} url={user.profilePictureUrl} size="md" />
+                    <div className="min-w-0 flex-1">
+                      <div className="truncate text-sm font-semibold text-[color:var(--text-1)]">{user.name}</div>
+                      <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-[color:var(--text-3)]">
+                        <span className={cn("h-2 w-2 rounded-full", status?.online ? "bg-emerald-500" : "bg-slate-300")} aria-hidden="true" />
+                        <span>{status?.online ? "Online" : `Last seen ${formatLastSeen(status?.lastSeenAt)}`}</span>
+                      </div>
                     </div>
-                  )}
-                </div>
-                <div className="min-w-0 flex-1">
-                  <div className="truncate">{user.name}</div>
-                  <div className="mt-0.5 flex items-center gap-2 text-[11px] font-semibold theme-faint">
-                    <span
-                      className={
-                        "h-2 w-2 rounded-full " +
-                        (status?.online ? "bg-emerald-400" : "bg-slate-400/60")
-                      }
-                      aria-hidden="true"
-                    />
-                    <span>
-                      {status?.online
-                        ? "Online"
-                        : status
-                          ? `Last seen ${formatLastSeen(status.lastSeenAt)}`
-                          : "Last seen unknown"}
-                    </span>
+                  </button>
+
+                  <div className="flex shrink-0 items-center gap-2">
+                    {unread > 0 ? <Badge variant="default">{unread}</Badge> : null}
+                    <Button
+                      variant={prioritized ? "default" : "outline"}
+                      size="icon"
+                      className={prioritized ? "border-amber-200 bg-amber-50 text-amber-700 hover:bg-amber-100 hover:border-amber-300" : "h-9 w-9"}
+                      onClick={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        void setUserPriority({ token, otherName: user.name, priority: !prioritized });
+                      }}
+                      title="Toggle priority"
+                      aria-label="Toggle priority"
+                    >
+                      <Star className="h-4 w-4" fill={prioritized ? "currentColor" : "none"} aria-hidden="true" />
+                    </Button>
                   </div>
                 </div>
-
-                {unread > 0 ? (
-                  <div className="rounded-full border px-2 py-0.5 text-[11px] font-semibold theme-chip">
-                    {unread}
-                  </div>
-                ) : null}
-
-                <button
-                  type="button"
-                  onClick={(e) => {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    const isOn = (priorityUsers ?? []).includes(user.name.toLowerCase());
-                    void setUserPriority({ token, otherName: user.name, priority: !isOn });
-                  }}
-                  className="inline-flex h-8 w-8 items-center justify-center rounded-xl border text-sm font-bold theme-chip"
-                  title="Toggle priority"
-                  aria-label="Toggle priority"
-                >
-                  {(priorityUsers ?? []).includes(user.name.toLowerCase()) ? "★" : "☆"}
-                </button>
-              </div>
-                );
-              })()}
-            </li>
-          ))
+              </li>
+            );
+          })
         ) : (
-          <li className="rounded-xl border px-3 py-3 text-sm theme-faint theme-card">
-            {emptyLabel ?? "No matching players."}
+          <li className="rounded-[24px] border border-dashed border-[color:var(--border-1)] bg-[color:rgba(236,243,251,0.72)] px-4 py-6 text-sm text-[color:var(--text-3)]">
+            {emptyLabel ?? "No matching people."}
           </li>
         )}
       </ul>
-    </aside>
+    </Card>
   );
 };
 

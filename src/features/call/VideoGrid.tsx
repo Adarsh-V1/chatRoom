@@ -44,7 +44,7 @@ export function VideoGrid({
       }
     }
     onRemoteVideoReady?.(remoteRef.current);
-  }, [remoteStream]);
+  }, [remoteStream, onRemoteVideoReady]);
 
   const gridClasses =
     "grid h-full w-full gap-3 " +

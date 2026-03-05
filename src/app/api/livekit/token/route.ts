@@ -31,8 +31,16 @@ export async function POST(req: Request) {
     const body = BodySchema.parse(await req.json());
 
     const convex = getConvexClient();
+    const call = await convex.query(api.calls.getCallByRoomId, {
+      token: body.token,
+      roomId: body.roomId,
+    });
+    if (!call) {
+      return NextResponse.json({ ok: false, error: "Call not found or inaccessible" }, { status: 404 });
+    }
+
     const me = await convex.query(api.auth.getSessionUser, { token: body.token });
-    if (!me) {
+    if (!me?.name) {
       return NextResponse.json({ ok: false, error: "Not logged in" }, { status: 401 });
     }
 

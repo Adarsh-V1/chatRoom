@@ -2,7 +2,9 @@
 
 import { useMemo, useState } from "react";
 import { motion } from "framer-motion";
-
+import { Button } from "@/src/components/ui/button";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/src/components/ui/card";
+import { Input } from "@/src/components/ui/input";
 import { AvatarPicker } from "./AvatarPicker";
 import { useAvatarPreview } from "./useAvatarPreview";
 
@@ -30,82 +32,51 @@ export function LoginForm({ title, subtitle, onSubmit }: Props) {
   const canSubmit = useMemo(() => {
     const n = name.trim();
     const p = password.trim();
-    return Boolean(n) && /^[A-Za-z]{4,5}$/.test(p);
+    return Boolean(n) && Boolean(p);
   }, [name, password]);
 
   return (
-    <motion.form
-      initial={{ opacity: 0, y: 8 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.22 }}
-      onSubmit={async (e) => {
-        e.preventDefault();
-        if (!canSubmit) return;
-        setError(null);
-        setIsSubmitting(true);
-        try {
-          await onSubmit({
-            name: name.trim(),
-            password: password.trim(),
-            avatarFile,
-          });
-        } catch (err) {
-          const message = err instanceof Error ? err.message : "Login failed";
-          setError(message);
-        } finally {
-          setIsSubmitting(false);
-        }
-      }}
-      className="w-full rounded-2xl border theme-card p-8 shadow backdrop-blur"
-    >
-      <h2 className="text-xl font-bold theme-text">{title}</h2>
-      <p className="mt-1 text-sm theme-muted">{subtitle}</p>
-
-      <AvatarPicker file={avatarFile} previewUrl={avatarPreviewUrl} onChange={setAvatarFile} />
-
-      <div className="mt-5">
-        <label className="block text-xs font-semibold tracking-widest theme-faint">
-          USERNAME
-        </label>
-        <input
-          type="text"
-          value={name}
-          onChange={(e) => setName(e.target.value)}
-          placeholder="Your name..."
-          className="mt-2 w-full rounded-xl border px-4 py-3 focus:outline-none focus:ring-2 focus:ring-cyan-400/40 theme-input"
-          autoFocus
-        />
-      </div>
-
-      <div className="mt-4">
-        <label className="block text-xs font-semibold tracking-widest theme-faint">
-          PASSWORD (4–5 LETTERS)
-        </label>
-        <input
-          type="password"
-          value={password}
-          onChange={(e) => setPassword(e.target.value)}
-          placeholder="abcd"
-          className="mt-2 w-full rounded-xl border px-4 py-3 focus:outline-none focus:ring-2 focus:ring-indigo-400/50 theme-input"
-        />
-        <div className="mt-2 text-xs theme-faint">
-          Letters only: A–Z, length 4 or 5.
-        </div>
-      </div>
-
-      {error ? (
-        <div className="mt-4 rounded-xl border border-red-500/20 bg-red-500/10 px-4 py-3 text-sm text-red-100">
-          {error}
-        </div>
-      ) : null}
-
-      <button
-        type="submit"
-        disabled={!canSubmit || isSubmitting}
-        className="mt-5 w-full rounded-xl bg-indigo-500 px-4 py-3 font-semibold text-white shadow hover:bg-indigo-400 focus:outline-none focus:ring-2 focus:ring-indigo-400/70 disabled:cursor-not-allowed disabled:opacity-60"
-      >
-        {isSubmitting ? "Entering…" : "Enter"}
-      </button>
-    </motion.form>
+    <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.22 }}>
+      <Card>
+        <CardHeader>
+          <CardTitle>{title}</CardTitle>
+          <CardDescription>{subtitle}</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <form
+            onSubmit={async (e) => {
+              e.preventDefault();
+              if (!canSubmit) return;
+              setError(null);
+              setIsSubmitting(true);
+              try {
+                await onSubmit({
+                  name: name.trim(),
+                  password: password.trim(),
+                  avatarFile,
+                });
+              } catch (err) {
+                const message = err instanceof Error ? err.message : "Login failed";
+                setError(message);
+              } finally {
+                setIsSubmitting(false);
+              }
+            }}
+            className="space-y-4"
+          >
+            <AvatarPicker file={avatarFile} previewUrl={avatarPreviewUrl} onChange={setAvatarFile} />
+            <Input type="text" value={name} onChange={(e) => setName(e.target.value)} placeholder="Your name" autoFocus />
+            <Input type="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="Your password" />
+            <div className="text-xs text-slate-500">
+              New accounts need a strong password (8+ chars with letters, numbers, and a symbol). Legacy 4-5 letter passwords still work.
+            </div>
+            {error ? <div className="rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">{error}</div> : null}
+            <Button type="submit" className="w-full" size="lg" disabled={!canSubmit || isSubmitting}>
+              {isSubmitting ? "Entering..." : "Enter"}
+            </Button>
+          </form>
+        </CardContent>
+      </Card>
+    </motion.div>
   );
 }

@@ -1,7 +1,31 @@
 import { ConvexError, v } from "convex/values";
 
 import { mutation, query } from "./_generated/server";
+import type { MutationCtx, QueryCtx } from "./_generated/server";
 import { requireUserForToken } from "./lib/session";
+import { assertUserCanAccessRoom } from "./lib/rooms";
+
+type Ctx = MutationCtx | QueryCtx;
+
+async function requireCallAccessByRoomId(
+  ctx: Ctx,
+  token: string,
+  roomId: string
+) {
+  const { user } = await requireUserForToken(ctx, token);
+  const call = await ctx.db
+    .query("calls")
+    .withIndex("by_roomId", (q) => q.eq("roomId", roomId))
+    .order("desc")
+    .first();
+
+  if (!call || call.status !== "active") {
+    throw new ConvexError("Call not found or inactive");
+  }
+
+  await assertUserCanAccessRoom(ctx, user, call.conversationId);
+  return { user };
+}
 
 export const sendSignal = mutation({
   args: {
@@ -11,9 +35,9 @@ export const sendSignal = mutation({
     payload: v.string(),
   },
   handler: async (ctx, args) => {
-    const { user } = await requireUserForToken(ctx, args.token);
     const roomId = args.roomId.trim();
     if (!roomId) throw new ConvexError("roomId is required");
+    const { user } = await requireCallAccessByRoomId(ctx, args.token, roomId);
 
     await ctx.db.insert("webrtcSignals", {
       roomId,
@@ -32,9 +56,9 @@ export const listSignals = query({
     limit: v.optional(v.number()),
   },
   handler: async (ctx, args) => {
-    const { user } = await requireUserForToken(ctx, args.token);
     const roomId = args.roomId.trim();
     if (!roomId) return [];
+    const { user } = await requireCallAccessByRoomId(ctx, args.token, roomId);
 
     const limit = Math.min(Math.max(args.limit ?? 120, 20), 300);
 

@@ -2,7 +2,10 @@
 
 import React from "react";
 import { motion } from "framer-motion";
-
+import { Download, Paperclip, Trash2 } from "lucide-react";
+import { Badge } from "@/src/components/ui/badge";
+import { Button } from "@/src/components/ui/button";
+import { cn } from "@/src/lib/utils";
 import { Avatar } from "@/src/features/ui/Avatar";
 
 export type ChatMessage = {
@@ -58,18 +61,15 @@ export function MessageBubble({
   const isDeleted = Boolean(msg.deletedAt);
   const showContent = !isDeleted || Boolean(isRevealed);
   const timeLabel = formatTime(msg._creationTime);
-  const bubblePadding = density === "compact" ? "px-3 py-1.5" : "px-4 py-2";
   const messageStyle = { fontSize: `${fontScale}rem` };
-  const metaStyle = { fontSize: `${Math.max(0.75, 0.85 * fontScale)}rem` };
+  const metaStyle = { fontSize: `${Math.max(0.72, 0.82 * fontScale)}rem` };
+  const compact = density === "compact";
 
   const autoDownloadRef = React.useRef<HTMLAnchorElement | null>(null);
   const autoDownloadedRef = React.useRef(false);
 
   React.useEffect(() => {
-    if (!autoDownloadFiles) return;
-    if (!msg.fileUrl) return;
-    if (isMe) return;
-    if (autoDownloadedRef.current) return;
+    if (!autoDownloadFiles || !msg.fileUrl || isMe || autoDownloadedRef.current) return;
     autoDownloadedRef.current = true;
     autoDownloadRef.current?.click();
   }, [autoDownloadFiles, msg.fileUrl, isMe]);
@@ -81,49 +81,46 @@ export function MessageBubble({
       animate={reducedMotion ? { opacity: 1 } : { opacity: 1, y: 0 }}
       exit={reducedMotion ? undefined : { opacity: 0, y: -8 }}
       transition={{ duration: reducedMotion ? 0 : 0.18 }}
-      className={"flex items-end gap-2 " + (isMe ? "justify-end" : "justify-start")}
+      className={cn("flex items-end gap-3", isMe ? "justify-end" : "justify-start")}
     >
       {isMe ? null : <Avatar name={name} url={msg.profilePictureUrl} size="md" />}
 
       <div
-        className={
-          "max-w-[78%] rounded-2xl border shadow-sm " +
-          bubblePadding +
-          " " +
-          (isMe
-            ? "border-indigo-400/20 bg-indigo-500/20 text-white"
-            : "theme-panel-strong theme-text")
-        }
+        className={cn(
+          "max-w-[min(82%,44rem)] rounded-[24px] border px-4 py-3 shadow-sm",
+          compact && "px-3 py-2",
+          isMe
+            ? "border-cyan-400/40 bg-linear-to-br from-cyan-600 via-sky-600 to-teal-600 text-white"
+            : "border-[color:var(--border-1)] bg-[color:rgba(240,245,252,0.9)] text-[color:var(--text-1)]"
+        )}
       >
-        <div className="mb-1 flex items-center justify-between gap-2">
+        <div className="mb-2 flex items-center justify-between gap-3">
           <div className="flex min-w-0 items-center gap-2">
-            <div className="truncate font-semibold theme-muted" style={metaStyle}>
+            <div className={cn("truncate font-semibold", isMe ? "text-sky-50/90" : "text-[color:var(--text-2)]")} style={metaStyle}>
               {name}
             </div>
             {msg.kind === "file" ? (
-              <div className="rounded-full border px-2 py-0.5 font-semibold theme-chip" style={metaStyle}>
-                FILE
-              </div>
+              <Badge variant={isMe ? "outline" : "secondary"} className={isMe ? "border-white/28 bg-white/10 text-white" : undefined}>
+                Attachment
+              </Badge>
             ) : null}
           </div>
           {timeLabel ? (
-            <div className="shrink-0 font-semibold theme-faint" style={metaStyle}>
+            <div className={cn("shrink-0 font-medium", isMe ? "text-sky-100/80" : "text-[color:var(--text-3)]")} style={metaStyle}>
               {timeLabel}
             </div>
           ) : null}
         </div>
 
         {msg.contextType && msg.contextData && showContent ? (
-          <div className="mb-2 inline-flex max-w-full items-center gap-2 rounded-xl border px-3 py-2 text-[11px] font-semibold theme-chip">
-            <span className="theme-faint">[{msg.contextType}:</span>
-            <span className="max-w-[16rem] truncate">{msg.contextData}</span>
-            <span className="theme-faint">]</span>
+          <div className={cn("mb-3 rounded-2xl border px-3 py-2 text-xs font-medium", isMe ? "border-white/20 bg-white/10 text-white/90" : "border-[color:var(--border-1)] bg-[color:rgba(220,232,246,0.78)] text-[color:var(--text-2)]")}>
+            [{msg.contextType}: {msg.contextData}]
           </div>
         ) : null}
 
         {showContent ? (
           msg.message ? (
-            <div className="wrap-break-word" style={messageStyle}>
+            <div className="wrap-break-word leading-6" style={messageStyle}>
               {msg.message}
             </div>
           ) : null
@@ -135,7 +132,7 @@ export function MessageBubble({
                 onReveal?.(msg._id);
               }
             }}
-            className="text-left text-xs font-semibold theme-faint"
+            className={cn("text-left text-xs font-medium", isMe ? "text-sky-100/80" : "text-slate-500")}
             title="Hold Ctrl/Cmd and click to reveal"
           >
             Message deleted
@@ -145,35 +142,31 @@ export function MessageBubble({
         {msg.fileUrl && showContent ? (
           autoPlayGifs && msg.fileType === "image/gif" ? (
             // eslint-disable-next-line @next/next/no-img-element
-            <img
-              src={msg.fileUrl}
-              alt={msg.fileName ?? "Attachment"}
-              className="mt-2 max-h-64 w-full rounded-xl border object-cover"
-            />
+            <img src={msg.fileUrl} alt={msg.fileName ?? "Attachment"} className="mt-3 max-h-72 w-full rounded-[18px] border border-black/5 object-cover" />
           ) : (
-          <a
-            href={msg.fileUrl}
-            target="_blank"
-            rel="noreferrer"
-            className="mt-2 inline-flex items-center gap-2 rounded-xl border px-3 py-2 text-xs font-semibold theme-chip"
-            download={autoDownloadFiles ? msg.fileName ?? true : undefined}
-            ref={autoDownloadFiles ? autoDownloadRef : undefined}
-          >
-            <span className="truncate max-w-[16rem]">{msg.fileName ?? "Open file"}</span>
-            <span className="theme-faint">↗</span>
-          </a>
+            <a
+              href={msg.fileUrl}
+              target="_blank"
+              rel="noreferrer"
+              className={cn(
+                "mt-3 inline-flex items-center gap-2 rounded-2xl border px-3 py-2 text-sm font-medium",
+                isMe ? "border-white/20 bg-white/10 text-white" : "border-[color:var(--border-1)] bg-[color:rgba(220,232,246,0.78)] text-[color:var(--text-2)]"
+              )}
+              download={autoDownloadFiles ? msg.fileName ?? true : undefined}
+              ref={autoDownloadFiles ? autoDownloadRef : undefined}
+            >
+              {autoDownloadFiles ? <Download className="h-4 w-4" aria-hidden="true" /> : <Paperclip className="h-4 w-4" aria-hidden="true" />}
+              <span className="max-w-[16rem] truncate">{msg.fileName ?? "Open file"}</span>
+            </a>
           )
         ) : null}
 
         {isMe && !isDeleted ? (
-          <div className="mt-2 flex justify-end">
-            <button
-              type="button"
-              onClick={() => onDelete?.(msg._id)}
-              className="rounded-lg border px-2 py-1 text-[10px] font-semibold theme-chip"
-            >
+          <div className="mt-3 flex justify-end">
+            <Button variant="ghost" size="sm" onClick={() => onDelete?.(msg._id)} className="text-white hover:bg-white/12 hover:text-white">
+              <Trash2 className="h-4 w-4" aria-hidden="true" />
               Delete
-            </button>
+            </Button>
           </div>
         ) : null}
       </div>

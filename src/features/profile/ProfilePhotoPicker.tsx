@@ -1,7 +1,9 @@
 "use client";
 
 import React, { useEffect, useMemo, useRef } from "react";
-
+import { ImagePlus, Trash2 } from "lucide-react";
+import { Button } from "@/src/components/ui/button";
+import { Card } from "@/src/components/ui/card";
 import { Avatar } from "@/src/features/ui/Avatar";
 
 type Props = {
@@ -37,38 +39,32 @@ export function ProfilePhotoPicker({ nameForFallback, file, onFileChange }: Prop
         }}
       />
 
-      <div className="mt-5 rounded-2xl border theme-panel p-4 shadow-sm">
-        <div className="flex items-center justify-between gap-3">
+      <Card className="mt-6 rounded-[24px] border-[color:var(--border-1)] bg-[color:rgba(216,228,243,0.82)] p-4 shadow-none">
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex min-w-0 items-center gap-3">
             <Avatar name={nameForFallback} url={previewUrl} size="lg" />
             <div className="min-w-0">
-              <div className="text-sm font-semibold theme-text">Profile photo</div>
-              <div className="truncate text-xs theme-muted">
-                {file ? file.name : "Optional — shows next to your name"}
+              <div className="text-sm font-medium text-[color:var(--text-1)]">Profile photo</div>
+              <div className="truncate text-sm text-[color:var(--text-3)]">
+                {file ? file.name : "Optional. It appears beside your messages and calls."}
               </div>
             </div>
           </div>
 
           <div className="flex items-center gap-2">
-            <button
-              type="button"
-              onClick={() => inputRef.current?.click()}
-              className="rounded-xl border px-3 py-2 text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-cyan-400/40 active:scale-[0.98] theme-chip"
-            >
-              {file ? "Change" : "Upload"}
-            </button>
+            <Button variant="secondary" size="sm" onClick={() => inputRef.current?.click()}>
+              <ImagePlus className="h-4 w-4" aria-hidden="true" />
+              {file ? "Replace" : "Upload"}
+            </Button>
             {file ? (
-              <button
-                type="button"
-                onClick={() => onFileChange(null)}
-                className="rounded-xl border px-3 py-2 text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-cyan-400/40 active:scale-[0.98] theme-chip"
-              >
+              <Button variant="outline" size="sm" onClick={() => onFileChange(null)}>
+                <Trash2 className="h-4 w-4" aria-hidden="true" />
                 Remove
-              </button>
+              </Button>
             ) : null}
           </div>
         </div>
-      </div>
+      </Card>
     </>
   );
 }

@@ -13,6 +13,7 @@ import type * as calls from "../calls.js";
 import type * as chats from "../chats.js";
 import type * as groups from "../groups.js";
 import type * as lib_password from "../lib/password.js";
+import type * as lib_rooms from "../lib/rooms.js";
 import type * as lib_session from "../lib/session.js";
 import type * as presence from "../presence.js";
 import type * as priorities from "../priorities.js";
@@ -34,6 +35,7 @@ declare const fullApi: ApiFromModules<{
   chats: typeof chats;
   groups: typeof groups;
   "lib/password": typeof lib_password;
+  "lib/rooms": typeof lib_rooms;
   "lib/session": typeof lib_session;
   presence: typeof presence;
   priorities: typeof priorities;

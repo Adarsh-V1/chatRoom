@@ -1,52 +1,21 @@
 import { mutation, query } from "./_generated/server";
-import { ConvexError, v } from "convex/values";
+import { v } from "convex/values";
 
 import { requireUserForToken } from "./lib/session";
-
-const GROUP_ROOM_PREFIX = "group:";
-
-function parseGroupSlug(room: string): string | null {
-  const trimmed = room.trim();
-  if (!trimmed.startsWith(GROUP_ROOM_PREFIX)) return null;
-  const slug = trimmed.slice(GROUP_ROOM_PREFIX.length).trim();
-  return slug || null;
-}
-
-async function requireGroupMembership(ctx: any, room: string, token?: string) {
-  const groupSlug = parseGroupSlug(room);
-  if (!groupSlug) return null;
-  if (!token) throw new ConvexError("Authentication required");
-
-  const { user } = await requireUserForToken(ctx, token);
-  const group = await ctx.db
-    .query("groups")
-    .withIndex("by_slug", (q: any) => q.eq("slug", groupSlug))
-    .first();
-
-  if (!group) throw new ConvexError("Group not found");
-
-  const membership = await ctx.db
-    .query("groupMembers")
-    .withIndex("by_group_user", (q: any) =>
-      q.eq("groupId", group._id).eq("userId", user._id)
-    )
-    .first();
-
-  if (!membership) throw new ConvexError("Join the group to view messages");
-
-  return { group, user };
-}
+import { assertUserCanAccessRoom } from "./lib/rooms";
 
 export const generateUploadUrl = mutation({
-  args: {},
-  handler: async (ctx) => {
+  args: { token: v.string() },
+  handler: async (ctx, args) => {
+    await requireUserForToken(ctx, args.token);
     return await ctx.storage.generateUploadUrl();
   },
 });
 
 export const upsertUser = mutation({
-  args: { name: v.string() },
+  args: { token: v.string(), name: v.string() },
   handler: async (ctx, args) => {
+    await requireUserForToken(ctx, args.token);
     const trimmed = args.name.trim();
     if (!trimmed) return;
 
@@ -73,7 +42,9 @@ export const upsertUser = mutation({
 });
 
 export const listUsers = query({
-  handler: async (ctx) => {
+  args: { token: v.string() },
+  handler: async (ctx, args) => {
+    await requireUserForToken(ctx, args.token);
     const users = await ctx.db.query("users").collect();
     users.sort((a, b) => a.name.localeCompare(b.name));
     return users.map((u) => u.name);
@@ -81,7 +52,9 @@ export const listUsers = query({
 });
 
 export const listUsersWithProfiles = query({
-  handler: async (ctx) => {
+  args: { token: v.string() },
+  handler: async (ctx, args) => {
+    await requireUserForToken(ctx, args.token);
     const users = await ctx.db.query("users").collect();
     users.sort((a, b) => a.name.localeCompare(b.name));
 
@@ -99,8 +72,9 @@ export const listUsersWithProfiles = query({
 });
 
 export const getUserProfile = query({
-  args: { name: v.string() },
+  args: { token: v.string(), name: v.string() },
   handler: async (ctx, args) => {
+    await requireUserForToken(ctx, args.token);
     const trimmed = args.name.trim();
     if (!trimmed) return null;
 
@@ -121,7 +95,9 @@ export const getUserProfile = query({
 });
 
 export const getUsernames = query({
-  handler: async (ctx) => {
+  args: { token: v.string() },
+  handler: async (ctx, args) => {
+    await requireUserForToken(ctx, args.token);
     const users = await ctx.db.query("users").collect();
     users.sort((a, b) => a.name.localeCompare(b.name));
     return users.map((u) => u.name);
@@ -140,7 +116,7 @@ export const addChat = mutation({
   },
   handler: async (ctx, args) => {
     const { user } = await requireUserForToken(ctx, args.token);
-    await requireGroupMembership(ctx, args.room, args.token);
+    await assertUserCanAccessRoom(ctx, user, args.room);
 
     await ctx.db.insert("chats", {
       message: args.message,
@@ -170,7 +146,7 @@ export const addFileChat = mutation({
   },
   handler: async (ctx, args) => {
     const { user } = await requireUserForToken(ctx, args.token);
-    await requireGroupMembership(ctx, args.room, args.token);
+    await assertUserCanAccessRoom(ctx, user, args.room);
 
     await ctx.db.insert("chats", {
       message: (args.message ?? "").toString(),
@@ -205,9 +181,10 @@ export const softDeleteChat = mutation({
 });
 
 export const getChats = query({
-  args: { room: v.string(), token: v.optional(v.string()) },
+  args: { room: v.string(), token: v.string() },
   handler: async (ctx, args) => {
-    await requireGroupMembership(ctx, args.room, args.token);
+    const { user } = await requireUserForToken(ctx, args.token);
+    await assertUserCanAccessRoom(ctx, user, args.room);
     const chats = await ctx.db
       .query("chats")
       .filter((q) => q.eq(q.field("room"), args.room))
@@ -297,18 +274,9 @@ export const backfillLegacyChats = mutation({
 
 // Legacy API: keep for now (used by older UI code).
 export const setUserProfilePicture = mutation({
-  args: { name: v.string(), storageId: v.id("_storage") },
+  args: { token: v.string(), storageId: v.id("_storage") },
   handler: async (ctx, args) => {
-    const trimmed = args.name.trim();
-    if (!trimmed) return;
-
-    const nameLower = trimmed.toLowerCase();
-    const user = await ctx.db
-      .query("users")
-      .withIndex("by_nameLower", (q) => q.eq("nameLower", nameLower))
-      .first();
-
-    if (!user) return;
+    const { user } = await requireUserForToken(ctx, args.token);
 
     await ctx.db.patch(user._id, {
       profilePictureStorageId: args.storageId,

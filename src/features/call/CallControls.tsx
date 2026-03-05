@@ -15,6 +15,7 @@ type Props = {
   onToggleChat: () => void;
   onToggleAutoGain: () => void;
   onToggleMuteOnJoin: () => void;
+  onChangeVideoFilter: (value: string) => void;
   micEnabled: boolean;
   camEnabled: boolean;
   canFlipCam: boolean;
@@ -27,6 +28,8 @@ type Props = {
   autoGainEnabled: boolean;
   muteOnJoin: boolean;
   qualityLabel: string;
+  videoFilter: string;
+  videoFilterOptions: Array<{ value: string; label: string }>;
 };
 
 function IconMic(props: { muted: boolean }) {
@@ -161,6 +164,7 @@ export function CallControls({
   onToggleChat,
   onToggleAutoGain,
   onToggleMuteOnJoin,
+  onChangeVideoFilter,
   micEnabled,
   camEnabled,
   canFlipCam,
@@ -173,6 +177,8 @@ export function CallControls({
   autoGainEnabled,
   muteOnJoin,
   qualityLabel,
+  videoFilter,
+  videoFilterOptions,
 }: Props) {
   const [busy, setBusy] = useState<"mic" | "cam" | "leave" | null>(null);
 
@@ -215,6 +221,20 @@ export function CallControls({
         <div className="call-control-pill rounded-xl border px-3 py-2 text-xs font-semibold">
           {qualityLabel}
         </div>
+        <label className="call-control-pill flex items-center gap-2 rounded-xl border px-3 py-2 text-xs font-semibold">
+          Filter
+          <select
+            value={videoFilter}
+            onChange={(event) => onChangeVideoFilter(event.target.value)}
+            className="theme-input rounded-lg border px-2 py-1 text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-cyan-400/40"
+          >
+            {videoFilterOptions.map((option) => (
+              <option key={option.value} value={option.value}>
+                {option.label}
+              </option>
+            ))}
+          </select>
+        </label>
         <button
           type="button"
           onClick={toggleMic}

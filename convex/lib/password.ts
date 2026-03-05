@@ -1,4 +1,6 @@
 const encoder = new TextEncoder();
+const LEGACY_PASSWORD_RE = /^[A-Za-z]{4,5}$/;
+const STRONG_PASSWORD_RE = /^(?=.*[A-Za-z])(?=.*\d)(?=.*[^A-Za-z0-9]).{8,72}$/;
 
 function bytesToHex(bytes: Uint8Array): string {
   let hex = "";
@@ -21,11 +23,22 @@ function hexToBytes(hex: string): Uint8Array {
   return out;
 }
 
-export function validateShortPassword(password: string): void {
+export function validatePasswordForRegistration(password: string): void {
   const trimmed = password.trim();
-  if (!/^[A-Za-z]{4,5}$/.test(trimmed)) {
-    throw new Error("Password must be 4–5 letters (A–Z)");
+  if (!STRONG_PASSWORD_RE.test(trimmed)) {
+    throw new Error(
+      "Password must be 8-72 chars and include letters, numbers, and a symbol"
+    );
   }
+}
+
+export function validatePasswordForLogin(password: string): void {
+  const trimmed = password.trim();
+  if (STRONG_PASSWORD_RE.test(trimmed)) return;
+  if (LEGACY_PASSWORD_RE.test(trimmed)) return;
+  throw new Error(
+    "Password format invalid (use your legacy 4-5 letter password or a strong password)"
+  );
 }
 
 function timingSafeEqualHex(a: string, b: string): boolean {
@@ -81,11 +94,11 @@ async function sha256HashHex(password: string, saltHex: string): Promise<string>
   return bytesToHex(new Uint8Array(digest));
 }
 
-export async function hashShortPassword(password: string): Promise<{
+export async function hashPassword(password: string): Promise<{
   saltHex: string;
   hashHex: string;
 }> {
-  validateShortPassword(password);
+  validatePasswordForRegistration(password);
   const saltHex = randomSaltHex(16);
   try {
     const hashHex = await pbkdf2HashHex(password, saltHex);
@@ -96,12 +109,12 @@ export async function hashShortPassword(password: string): Promise<{
   }
 }
 
-export async function verifyShortPassword(params: {
+export async function verifyPassword(params: {
   password: string;
   saltHex: string;
   expectedHashHex: string;
 }): Promise<boolean> {
-  validateShortPassword(params.password);
+  validatePasswordForLogin(params.password);
 
   let computed: string;
   try {
@@ -112,3 +125,8 @@ export async function verifyShortPassword(params: {
 
   return timingSafeEqualHex(computed, params.expectedHashHex);
 }
+
+// Backward-compatible exports for older imports.
+export const validateShortPassword = validatePasswordForRegistration;
+export const hashShortPassword = hashPassword;
+export const verifyShortPassword = verifyPassword;

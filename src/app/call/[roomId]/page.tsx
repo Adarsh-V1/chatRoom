@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import type { FaceLandmarker, NormalizedLandmark } from "@mediapipe/tasks-vision";
 import { useMutation, useQuery } from "convex/react";
 import { useParams, useRouter } from "next/navigation";
 
@@ -10,6 +11,16 @@ import { VideoGrid } from "@/src/features/call/VideoGrid";
 import { useChatAuth } from "@/src/features/auth/useChatAuth";
 import { ChatFeed } from "@/src/features/chat/chatFeed";
 import { ChatForm } from "@/src/features/chat/chatForm";
+import {
+  drawFaceEffect,
+  filterNeedsFace,
+  VIDEO_FILTERS,
+  type VideoFilterId,
+} from "@/src/features/call/videoFilters";
+
+const FACE_LANDMARKER_WASM_URL = "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision/wasm";
+const FACE_LANDMARKER_MODEL_URL =
+  "https://storage.googleapis.com/mediapipe-models/face_landmarker/face_landmarker/float16/1/face_landmarker.task";
 
 export default function CallRoomPage() {
   const params = useParams();
@@ -20,7 +31,10 @@ export default function CallRoomPage() {
   const router = useRouter();
   const auth = useChatAuth();
 
-  const call = useQuery(api.calls.getCallByRoomId, roomId ? { roomId } : "skip");
+  const call = useQuery(
+    api.calls.getCallByRoomId,
+    auth.isLoggedIn && roomId ? { token: auth.token ?? "", roomId } : "skip"
+  );
   const endCall = useMutation(api.calls.endCall);
   const startCall = useMutation(api.calls.startCall);
   const sendSignal = useMutation(api.webrtc.sendSignal);
@@ -51,10 +65,12 @@ export default function CallRoomPage() {
   const [autoGainEnabled, setAutoGainEnabled] = useState(true);
   const [muteOnJoin, setMuteOnJoin] = useState(true);
   const [qualityLabel, setQualityLabel] = useState("Quality: --");
+  const [videoFilter, setVideoFilter] = useState<VideoFilterId>("none");
 
   const peerRef = useRef<RTCPeerConnection | null>(null);
   const localStreamRef = useRef<MediaStream | null>(null);
   const remoteVideoRef = useRef<HTMLVideoElement | null>(null);
+  const cameraSourceRef = useRef<MediaStream | null>(null);
   const cameraTrackRef = useRef<MediaStreamTrack | null>(null);
   const screenTrackRef = useRef<MediaStreamTrack | null>(null);
   const recorderRef = useRef<MediaRecorder | null>(null);
@@ -62,6 +78,16 @@ export default function CallRoomPage() {
   const pendingIceRef = useRef<RTCIceCandidateInit[]>([]);
   const processedSignalsRef = useRef<Set<string>>(new Set());
   const sentOfferRef = useRef(false);
+  const filterVideoRef = useRef<HTMLVideoElement | null>(null);
+  const filterCanvasRef = useRef<HTMLCanvasElement | null>(null);
+  const filterStreamRef = useRef<MediaStream | null>(null);
+  const filterTrackRef = useRef<MediaStreamTrack | null>(null);
+  const filterFrameRef = useRef<number | null>(null);
+  const videoFilterRef = useRef<VideoFilterId>("none");
+  const faceLandmarkerRef = useRef<FaceLandmarker | null>(null);
+  const faceLandmarkerPromiseRef = useRef<Promise<FaceLandmarker | null> | null>(null);
+  const latestFaceLandmarksRef = useRef<NormalizedLandmark[] | null>(null);
+  const lastFaceDetectionAtRef = useRef(0);
 
   const isStarter = useMemo(() => {
     const me = (auth.name ?? "").trim().toLowerCase();
@@ -77,6 +103,183 @@ export default function CallRoomPage() {
   const stopStream = (stream?: MediaStream | null) => {
     stream?.getTracks().forEach((track) => track.stop());
   };
+
+  const getFaceLandmarker = useCallback(async () => {
+    if (faceLandmarkerRef.current) return faceLandmarkerRef.current;
+    if (!faceLandmarkerPromiseRef.current) {
+      faceLandmarkerPromiseRef.current = import("@mediapipe/tasks-vision")
+        .then(async ({ FaceLandmarker, FilesetResolver }) => {
+          const vision = await FilesetResolver.forVisionTasks(FACE_LANDMARKER_WASM_URL);
+          const landmarker = await FaceLandmarker.createFromOptions(vision, {
+            baseOptions: {
+              modelAssetPath: FACE_LANDMARKER_MODEL_URL,
+            },
+            runningMode: "VIDEO",
+            numFaces: 1,
+            minFaceDetectionConfidence: 0.6,
+            minFacePresenceConfidence: 0.6,
+            minTrackingConfidence: 0.5,
+          });
+          faceLandmarkerRef.current = landmarker;
+          return landmarker;
+        })
+        .catch(() => null);
+    }
+
+    return faceLandmarkerPromiseRef.current;
+  }, []);
+
+  const stopFilterPipeline = useCallback(() => {
+    if (filterFrameRef.current !== null) {
+      cancelAnimationFrame(filterFrameRef.current);
+      filterFrameRef.current = null;
+    }
+    filterTrackRef.current = null;
+    stopStream(filterStreamRef.current);
+    filterStreamRef.current = null;
+    latestFaceLandmarksRef.current = null;
+    lastFaceDetectionAtRef.current = 0;
+
+    const video = filterVideoRef.current;
+    if (video) {
+      video.pause();
+      video.srcObject = null;
+    }
+  }, []);
+
+  const setOutgoingStream = useCallback((audioTracks: MediaStreamTrack[], videoTrack: MediaStreamTrack) => {
+    const nextStream = new MediaStream([...audioTracks, videoTrack]);
+    localStreamRef.current = nextStream;
+    setLocalStream(nextStream);
+    return nextStream;
+  }, []);
+
+  const switchOutgoingVideoTrack = useCallback(
+    async (nextTrack: MediaStreamTrack) => {
+      const audioTracks = localStreamRef.current?.getAudioTracks() ?? [];
+      setOutgoingStream(audioTracks, nextTrack);
+      const sender = peerRef.current?.getSenders().find((s) => s.track?.kind === "video");
+      if (sender) {
+        await sender.replaceTrack(nextTrack);
+      }
+    },
+    [setOutgoingStream]
+  );
+
+  const startFilterPipeline = useCallback(
+    async (cameraStream: MediaStream) => {
+      const rawTrack = cameraStream.getVideoTracks()[0] ?? null;
+      if (!rawTrack) return null;
+
+      stopFilterPipeline();
+
+      const video = filterVideoRef.current ?? document.createElement("video");
+      video.muted = true;
+      video.autoplay = true;
+      video.playsInline = true;
+      filterVideoRef.current = video;
+
+      const canvas = filterCanvasRef.current ?? document.createElement("canvas");
+      filterCanvasRef.current = canvas;
+
+      video.srcObject = cameraStream;
+      if (video.readyState < HTMLMediaElement.HAVE_METADATA || video.videoWidth === 0) {
+        await new Promise<void>((resolve, reject) => {
+          const onLoaded = () => {
+            cleanup();
+            resolve();
+          };
+          const onError = () => {
+            cleanup();
+            reject(new Error("Failed to initialize the camera filter"));
+          };
+          const cleanup = () => {
+            video.removeEventListener("loadedmetadata", onLoaded);
+            video.removeEventListener("error", onError);
+          };
+          video.addEventListener("loadedmetadata", onLoaded);
+          video.addEventListener("error", onError);
+        });
+      }
+
+      try {
+        await video.play();
+      } catch {
+        // Ignore autoplay errors for the off-screen processing video.
+      }
+
+      const width = video.videoWidth || rawTrack.getSettings().width || 1280;
+      const height = video.videoHeight || rawTrack.getSettings().height || 720;
+      canvas.width = width;
+      canvas.height = height;
+
+      const ctx = canvas.getContext("2d", { alpha: false });
+      if (!ctx || typeof canvas.captureStream !== "function") {
+        return rawTrack;
+      }
+
+      if (filterNeedsFace(videoFilterRef.current)) {
+        void getFaceLandmarker();
+      }
+
+      const drawFrame = () => {
+        const nextWidth = video.videoWidth || width;
+        const nextHeight = video.videoHeight || height;
+        if (canvas.width !== nextWidth || canvas.height !== nextHeight) {
+          canvas.width = nextWidth;
+          canvas.height = nextHeight;
+        }
+
+        const activeFilter = videoFilterRef.current;
+        ctx.filter = VIDEO_FILTERS[activeFilter].css;
+        ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+        if (filterNeedsFace(activeFilter)) {
+          const now = performance.now();
+          if (now - lastFaceDetectionAtRef.current > 80) {
+            lastFaceDetectionAtRef.current = now;
+            try {
+              const landmarker = faceLandmarkerRef.current;
+              if (landmarker) {
+                const result = landmarker.detectForVideo(video, now);
+                latestFaceLandmarksRef.current = result.faceLandmarks[0] ?? null;
+              }
+            } catch {
+              latestFaceLandmarksRef.current = null;
+            }
+          }
+          drawFaceEffect(
+            ctx,
+            activeFilter,
+            latestFaceLandmarksRef.current,
+            canvas.width,
+            canvas.height
+          );
+        }
+
+        ctx.filter = "none";
+        filterFrameRef.current = requestAnimationFrame(drawFrame);
+      };
+
+      const captureFps = rawTrack.getSettings().frameRate;
+      const filteredStream = canvas.captureStream(
+        typeof captureFps === "number" && captureFps > 0 ? Math.min(captureFps, 30) : 24
+      );
+      const filteredTrack = filteredStream.getVideoTracks()[0] ?? null;
+      if (!filteredTrack) {
+        stopStream(filteredStream);
+        return rawTrack;
+      }
+
+      filteredTrack.enabled = rawTrack.enabled;
+      filterStreamRef.current = filteredStream;
+      filterTrackRef.current = filteredTrack;
+      drawFrame();
+
+      return filteredTrack;
+    },
+    [getFaceLandmarker, stopFilterPipeline]
+  );
 
   const flushPendingIce = useCallback(async () => {
     const pc = peerRef.current;
@@ -179,6 +382,15 @@ export default function CallRoomPage() {
     setMicEnabled(stream.getAudioTracks().some((track) => track.enabled));
     setCamEnabled(stream.getVideoTracks().some((track) => track.enabled));
   }, [localStream]);
+
+  useEffect(() => {
+    videoFilterRef.current = videoFilter;
+  }, [videoFilter]);
+
+  useEffect(() => {
+    if (!filterNeedsFace(videoFilter)) return;
+    void getFaceLandmarker();
+  }, [getFaceLandmarker, videoFilter]);
 
   useEffect(() => {
     const stream = localStreamRef.current;
@@ -374,14 +586,22 @@ export default function CallRoomPage() {
         stopStream(stream);
         return;
       }
-      localStreamRef.current = stream;
       cameraTrackRef.current = stream.getVideoTracks()[0] ?? null;
+      cameraSourceRef.current = cameraTrackRef.current
+        ? new MediaStream([cameraTrackRef.current])
+        : null;
+      const filteredTrack =
+        (cameraSourceRef.current && (await startFilterPipeline(cameraSourceRef.current))) ||
+        cameraTrackRef.current;
+      if (!filteredTrack) {
+        throw new Error("No camera track available");
+      }
       if (muteOnJoin) {
         const audioTrack = stream.getAudioTracks()[0];
         if (audioTrack) audioTrack.enabled = false;
       }
-      setLocalStream(stream);
-      stream.getTracks().forEach((track) => pc.addTrack(track, stream));
+      const outgoingStream = setOutgoingStream(stream.getAudioTracks(), filteredTrack);
+      outgoingStream.getTracks().forEach((track) => pc.addTrack(track, outgoingStream));
       setIsConnecting(false);
       setRtcReady(true);
     };
@@ -399,6 +619,11 @@ export default function CallRoomPage() {
       peerRef.current = null;
       if (pc) pc.close();
       stopStream(localStreamRef.current);
+      stopStream(cameraSourceRef.current);
+      cameraSourceRef.current = null;
+      cameraTrackRef.current = null;
+      screenTrackRef.current = null;
+      stopFilterPipeline();
       localStreamRef.current = null;
       setLocalStream(null);
       setRemoteStream(null);
@@ -415,6 +640,9 @@ export default function CallRoomPage() {
     reconnectNonce,
     muteOnJoin,
     restartIce,
+    setOutgoingStream,
+    startFilterPipeline,
+    stopFilterPipeline,
   ]);
 
   const stopScreenShare = useCallback(async () => {
@@ -437,22 +665,18 @@ export default function CallRoomPage() {
       });
       cameraTrack = camStream.getVideoTracks()[0] ?? null;
       cameraTrackRef.current = cameraTrack;
-      camStream.getTracks().forEach((track) => {
-        if (track !== cameraTrack) track.stop();
-      });
+      stopStream(cameraSourceRef.current);
+      cameraSourceRef.current = cameraTrack ? new MediaStream([cameraTrack]) : null;
     }
 
-    if (cameraTrack) {
-      stream?.addTrack(cameraTrack);
-      const sender = peerRef.current?.getSenders().find((s) => s.track?.kind === "video");
-      if (sender) {
-        await sender.replaceTrack(cameraTrack);
-      }
+    const filteredTrack =
+      (cameraSourceRef.current && (await startFilterPipeline(cameraSourceRef.current))) || cameraTrack;
+    if (filteredTrack) {
+      await switchOutgoingVideoTrack(filteredTrack);
     }
 
-    setLocalStream(new MediaStream(stream?.getTracks() ?? []));
     setIsSharing(false);
-  }, [cameraFacing]);
+  }, [cameraFacing, startFilterPipeline, switchOutgoingVideoTrack]);
 
   const startScreenShare = useCallback(async () => {
     if (!navigator.mediaDevices?.getDisplayMedia) {
@@ -469,27 +693,15 @@ export default function CallRoomPage() {
 
     const screenTrack = displayStream.getVideoTracks()[0];
     if (!screenTrack) return;
+    screenTrack.enabled = camEnabled;
 
     screenTrackRef.current = screenTrack;
     screenTrack.onended = () => {
       void stopScreenShare();
     };
-
-    const oldTrack = stream.getVideoTracks()[0];
-    if (oldTrack) {
-      stream.removeTrack(oldTrack);
-    }
-
-    stream.addTrack(screenTrack);
-
-    const sender = peerRef.current?.getSenders().find((s) => s.track?.kind === "video");
-    if (sender) {
-      await sender.replaceTrack(screenTrack);
-    }
-
-    setLocalStream(new MediaStream(stream.getTracks()));
+    await switchOutgoingVideoTrack(screenTrack);
     setIsSharing(true);
-  }, [stopScreenShare]);
+  }, [camEnabled, stopScreenShare, switchOutgoingVideoTrack]);
 
   const toggleScreenShare = useCallback(async () => {
     if (isSharing) {
@@ -559,35 +771,31 @@ export default function CallRoomPage() {
 
       const newTrack = newStream.getVideoTracks()[0];
       if (!newTrack) return;
+      newTrack.enabled = camEnabled;
 
-      const stream = localStreamRef.current;
-      const oldTrack = stream?.getVideoTracks()[0];
-      if (oldTrack) {
-        oldTrack.stop();
-        stream?.removeTrack(oldTrack);
-      }
-
-      stream?.addTrack(newTrack);
+      stopStream(cameraSourceRef.current);
+      cameraSourceRef.current = new MediaStream([newTrack]);
       cameraTrackRef.current = newTrack;
-
-      const pc = peerRef.current;
-      const sender = pc?.getSenders().find((s) => s.track?.kind === "video");
-      if (sender) {
-        await sender.replaceTrack(newTrack);
+      const filteredTrack =
+        (cameraSourceRef.current && (await startFilterPipeline(cameraSourceRef.current))) || newTrack;
+      if (filteredTrack) {
+        await switchOutgoingVideoTrack(filteredTrack);
       }
-
-      setLocalStream(new MediaStream(stream?.getTracks() ?? [newTrack]));
       setCameraFacing(nextFacing);
-
-      newStream.getTracks().forEach((track) => {
-        if (track !== newTrack) track.stop();
-      });
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to switch camera");
     } finally {
       setIsFlipping(false);
     }
-  }, [cameraFacing, isFlipping, isSharing]);
+  }, [cameraFacing, camEnabled, isFlipping, isSharing, startFilterPipeline, switchOutgoingVideoTrack]);
+
+  useEffect(() => {
+    if (isSharing) return;
+    const rawTrack = cameraTrackRef.current;
+    const filteredTrack = filterTrackRef.current;
+    if (!rawTrack || !filteredTrack || filteredTrack === rawTrack) return;
+    filteredTrack.enabled = rawTrack.enabled;
+  }, [camEnabled, isSharing]);
 
   const reconnect = useCallback(() => {
     setReconnectNonce((prev) => prev + 1);
@@ -660,7 +868,7 @@ export default function CallRoomPage() {
   if (!roomId) {
     return (
       <main className="theme-page min-h-screen w-full p-4 sm:p-6">
-        <div className="mx-auto flex min-h-[calc(100vh-2rem)] w-full max-w-md items-center justify-center">
+        <div className="mx-auto flex min-h-[calc(100dvh-2rem)] w-full max-w-md items-center justify-center">
           <div className="theme-panel w-full rounded-2xl border p-8 shadow backdrop-blur">
             {autoStartError ? (
               <>
@@ -698,7 +906,7 @@ export default function CallRoomPage() {
   if (!auth.isReady) {
     return (
       <main className="theme-page min-h-screen w-full p-4 sm:p-6">
-        <div className="mx-auto flex min-h-[calc(100vh-2rem)] w-full max-w-md items-center justify-center">
+        <div className="mx-auto flex min-h-[calc(100dvh-2rem)] w-full max-w-md items-center justify-center">
           <div className="theme-panel w-full rounded-2xl border p-8 shadow backdrop-blur">
             <div className="theme-text text-base font-semibold">Checking session…</div>
           </div>
@@ -710,7 +918,7 @@ export default function CallRoomPage() {
   if (!auth.isLoggedIn) {
     return (
       <main className="theme-page min-h-screen w-full p-4 sm:p-6">
-        <div className="mx-auto flex min-h-[calc(100vh-2rem)] w-full max-w-md items-center justify-center">
+        <div className="mx-auto flex min-h-[calc(100dvh-2rem)] w-full max-w-md items-center justify-center">
           <div className="theme-panel w-full rounded-2xl border p-8 shadow backdrop-blur">
             <div className="theme-text text-base font-semibold">Sign in required</div>
             <p className="theme-muted mt-2 text-sm">
@@ -732,7 +940,7 @@ export default function CallRoomPage() {
   if (call === null) {
     return (
       <main className="theme-page min-h-screen w-full p-4 sm:p-6">
-        <div className="mx-auto flex min-h-[calc(100vh-2rem)] w-full max-w-md items-center justify-center">
+        <div className="mx-auto flex min-h-[calc(100dvh-2rem)] w-full max-w-md items-center justify-center">
           <div className="theme-panel w-full rounded-2xl border p-8 shadow backdrop-blur">
             <div className="theme-text text-base font-semibold">Call not found</div>
             <p className="theme-muted mt-2 text-sm">This room id is not active.</p>
@@ -752,7 +960,7 @@ export default function CallRoomPage() {
   if (call && call.status === "ended") {
     return (
       <main className="theme-page min-h-screen w-full p-4 sm:p-6">
-        <div className="mx-auto flex min-h-[calc(100vh-2rem)] w-full max-w-md items-center justify-center">
+        <div className="mx-auto flex min-h-[calc(100dvh-2rem)] w-full max-w-md items-center justify-center">
           <div className="theme-panel w-full rounded-2xl border p-8 shadow backdrop-blur">
             <div className="theme-text text-base font-semibold">Call ended</div>
             <p className="theme-muted mt-2 text-sm">This call is no longer active.</p>
@@ -772,7 +980,7 @@ export default function CallRoomPage() {
   if (error) {
     return (
       <main className="theme-page min-h-screen w-full p-4 sm:p-6">
-        <div className="mx-auto flex min-h-[calc(100vh-2rem)] w-full max-w-md items-center justify-center">
+        <div className="mx-auto flex min-h-[calc(100dvh-2rem)] w-full max-w-md items-center justify-center">
           <div className="theme-panel w-full rounded-2xl border p-8 shadow backdrop-blur">
             <div className="theme-text text-base font-semibold">Could not join call</div>
             <p className="theme-muted mt-2 text-sm">{error}</p>
@@ -792,7 +1000,7 @@ export default function CallRoomPage() {
   if (mediaError) {
     return (
       <main className="theme-page min-h-screen w-full p-4 sm:p-6">
-        <div className="mx-auto flex min-h-[calc(100vh-2rem)] w-full max-w-md items-center justify-center">
+        <div className="mx-auto flex min-h-[calc(100dvh-2rem)] w-full max-w-md items-center justify-center">
           <div className="theme-panel w-full rounded-2xl border p-8 shadow backdrop-blur">
             <div className="theme-text text-base font-semibold">
               Camera or microphone blocked
@@ -814,7 +1022,7 @@ export default function CallRoomPage() {
   if (!localStream || isConnecting) {
     return (
       <main className="theme-page min-h-screen w-full p-4 sm:p-6">
-        <div className="mx-auto flex min-h-[calc(100vh-2rem)] w-full max-w-md items-center justify-center">
+        <div className="mx-auto flex min-h-[calc(100dvh-2rem)] w-full max-w-md items-center justify-center">
           <div className="theme-panel w-full rounded-2xl border p-8 shadow backdrop-blur">
             <div className="theme-text text-base font-semibold">Connecting…</div>
           </div>
@@ -825,7 +1033,7 @@ export default function CallRoomPage() {
 
   return (
     <main className="theme-page min-h-screen w-full p-3 sm:p-6">
-      <div className="mx-auto flex h-[calc(100vh-1.5rem)] w-full max-w-6xl flex-col gap-3 sm:h-[calc(100vh-3rem)] sm:gap-4">
+      <div className="flex h-[calc(100dvh-1.5rem)] w-full min-w-0 flex-col gap-3 sm:h-[calc(100dvh-3rem)] sm:gap-4">
         <div className="theme-panel flex-1 overflow-hidden rounded-2xl border p-2 shadow backdrop-blur sm:p-3">
           <div className="flex h-full flex-col">
             <header className="flex items-center justify-between gap-3 px-1 pb-2">
@@ -895,6 +1103,11 @@ export default function CallRoomPage() {
                 autoGainEnabled={autoGainEnabled}
                 muteOnJoin={muteOnJoin}
                 qualityLabel={qualityLabel}
+                videoFilter={videoFilter}
+                videoFilterOptions={Object.entries(VIDEO_FILTERS).map(([value, config]) => ({
+                  value: value as VideoFilterId,
+                  label: config.label,
+                }))}
                 onToggleMic={() => {
                   const stream = localStreamRef.current;
                   const track = stream?.getAudioTracks()[0];
@@ -904,17 +1117,20 @@ export default function CallRoomPage() {
                   setMicEnabled(next);
                 }}
                 onToggleCam={() => {
-                  const stream = localStreamRef.current;
-                  const track = stream?.getVideoTracks()[0];
+                  const outgoingTrack = localStreamRef.current?.getVideoTracks()[0];
+                  const sourceTrack = cameraTrackRef.current;
+                  const track = outgoingTrack ?? sourceTrack;
                   if (!track) return;
                   const next = !track.enabled;
-                  track.enabled = next;
+                  if (outgoingTrack) outgoingTrack.enabled = next;
+                  if (sourceTrack && sourceTrack !== outgoingTrack) sourceTrack.enabled = next;
                   setCamEnabled(next);
                 }}
                 onFlipCam={flipCamera}
                 onToggleShare={toggleScreenShare}
                 onTogglePip={() => setPipEnabled((prev) => !prev)}
                 onToggleBlur={() => setBlurEnabled((prev) => !prev)}
+                onChangeVideoFilter={(next) => setVideoFilter(next as VideoFilterId)}
                 onReconnect={reconnect}
                 onToggleRecord={toggleRecording}
                 onToggleChat={() => setChatOpen((prev) => !prev)}

@@ -2,6 +2,7 @@ import { mutation, query } from "./_generated/server";
 import { v } from "convex/values";
 
 import { requireUserForToken } from "./lib/session";
+import { assertUserCanAccessRoom } from "./lib/rooms";
 
 const TYPING_TTL_MS = 8_000;
 
@@ -15,6 +16,7 @@ export const setTyping = mutation({
     const { user } = await requireUserForToken(ctx, args.token);
     const room = args.room.trim();
     if (!room) return;
+    await assertUserCanAccessRoom(ctx, user, room);
 
     const existing = await ctx.db
       .query("typingIndicators")
@@ -48,6 +50,7 @@ export const getTypingUsers = query({
     const { user } = await requireUserForToken(ctx, args.token);
     const room = args.room.trim();
     if (!room) return [] as Array<{ name: string }>;
+    await assertUserCanAccessRoom(ctx, user, room);
 
     const cutoff = Date.now() - TYPING_TTL_MS;
     const items = await ctx.db

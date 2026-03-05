@@ -2,6 +2,7 @@ import { mutation, query } from "./_generated/server";
 import { ConvexError, v } from "convex/values";
 
 import { requireUserForToken } from "./lib/session";
+import { assertUserCanAccessRoom } from "./lib/rooms";
 
 function randomHex(byteLength = 8): string {
   const bytes = new Uint8Array(byteLength);
@@ -38,6 +39,7 @@ export const startCall = mutation({
 
     const conversationId = args.conversationId.trim();
     if (!conversationId) throw new ConvexError("conversationId is required");
+    await assertUserCanAccessRoom(ctx, user, conversationId);
 
     const existing = await ctx.db
       .query("calls")
@@ -64,10 +66,12 @@ export const startCall = mutation({
 });
 
 export const getActiveCall = query({
-  args: { conversationId: v.string() },
+  args: { token: v.string(), conversationId: v.string() },
   handler: async (ctx, args) => {
+    const { user } = await requireUserForToken(ctx, args.token);
     const conversationId = args.conversationId.trim();
     if (!conversationId) return null;
+    await assertUserCanAccessRoom(ctx, user, conversationId);
 
     const call = await ctx.db
       .query("calls")
@@ -92,8 +96,9 @@ export const getActiveCall = query({
 });
 
 export const getCallByRoomId = query({
-  args: { roomId: v.string() },
+  args: { token: v.string(), roomId: v.string() },
   handler: async (ctx, args) => {
+    const { user } = await requireUserForToken(ctx, args.token);
     const roomId = args.roomId.trim();
     if (!roomId) return null;
 
@@ -104,6 +109,7 @@ export const getCallByRoomId = query({
       .first();
 
     if (!call) return null;
+    await assertUserCanAccessRoom(ctx, user, call.conversationId);
 
     const starter = await ctx.db.get(call.startedBy);
 

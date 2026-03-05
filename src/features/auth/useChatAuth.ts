@@ -21,15 +21,16 @@ export function useChatAuth() {
   const loginOrRegister = useMutation(api.auth.loginOrRegister);
   const touchSession = useMutation(api.auth.touchSession);
   const pingPresence = useMutation(api.presence.ping);
+  const revokeSession = useMutation(api.auth.revokeSession);
 
   const me = useQuery(api.auth.getSessionUser, token ? { token } : "skip");
 
   useEffect(() => {
-    setHydrated(true);
+    queueMicrotask(() => setHydrated(true));
   }, []);
 
   useEffect(() => {
-    if (!token) return;
+    if (!token || !me) return;
 
     let cancelled = false;
 
@@ -59,7 +60,7 @@ export function useChatAuth() {
       clearInterval(interval);
       document.removeEventListener("visibilitychange", handleVisibility);
     };
-  }, [token, touchSession, pingPresence]);
+  }, [token, me, touchSession, pingPresence]);
 
   useEffect(() => {
     if (!token) return;
@@ -75,20 +76,31 @@ export function useChatAuth() {
     queueMicrotask(() => setAuth(null));
   }, [me, token, auth?.name]);
 
-  const login = useCallback(async ({ name: rawName, password }: LoginArgs) => {
-    const result = await loginOrRegister({ name: rawName, password });
-    const next = { token: result.token, name: result.name };
-    saveAuth(next);
-    setAuth(next);
-    return result;
-  }, [loginOrRegister]);
+  const login = useCallback(
+    async ({ name: rawName, password }: LoginArgs) => {
+      const result = await loginOrRegister({ name: rawName, password });
+      const next = { token: result.token, name: result.name };
+      saveAuth(next);
+      setAuth(next);
+      return result;
+    },
+    [loginOrRegister]
+  );
 
-  const logout = useCallback(() => {
+  const logout = useCallback(async () => {
+    if (token) {
+      try {
+        await revokeSession({ token });
+      } catch {
+        // Ignore revocation errors and clear local state anyway.
+      }
+    }
     clearAuth();
     setAuth(null);
-  }, []);
+  }, [token, revokeSession]);
 
   const resolvedName = useMemo(() => me?.name ?? name, [me?.name, name]);
+  const isLoggedIn = hydrated && Boolean(token && me);
   const isReady = hydrated && (token ? me !== undefined : true);
 
   return {
@@ -98,6 +110,6 @@ export function useChatAuth() {
     login,
     logout,
     isReady,
-    isLoggedIn: hydrated && Boolean(token && me),
+    isLoggedIn,
   };
 }

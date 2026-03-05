@@ -7,8 +7,10 @@ import { useChatAuth } from "@/src/features/auth/useChatAuth";
 
 export function SettingsSync() {
   const auth = useChatAuth();
-  const token = auth.token ?? "";
-  const settings = useQuery(api.settings.getMySettings, token ? { token } : "skip");
+  const settings = useQuery(
+    api.settings.getMySettings,
+    auth.isLoggedIn ? { token: auth.token ?? "" } : "skip"
+  );
 
   useEffect(() => {
     const root = document.documentElement;

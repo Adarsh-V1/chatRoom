@@ -1,4 +1,7 @@
 import Link from "next/link";
+import { CircleUserRound, MessageSquareText, Settings2, UsersRound } from "lucide-react";
+import { Badge } from "@/src/components/ui/badge";
+import { cn } from "@/src/lib/utils";
 
 interface AppNavProps {
   pathname: string;
@@ -6,68 +9,10 @@ interface AppNavProps {
 }
 
 const navItems = [
-  {
-    label: "Chat",
-    href: "/chat",
-    icon: (
-      <svg viewBox="0 0 24 24" className="h-5 w-5" aria-hidden="true">
-        <path
-          d="M4 6a3 3 0 0 1 3-3h10a3 3 0 0 1 3 3v8a3 3 0 0 1-3 3H9l-5 4v-4H7a3 3 0 0 1-3-3V6Z"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="2"
-          strokeLinejoin="round"
-        />
-      </svg>
-    ),
-  },
-  {
-    label: "Groups",
-    href: "/groups",
-    icon: (
-      <svg viewBox="0 0 24 24" className="h-5 w-5" aria-hidden="true">
-        <path
-          d="M7 11a3 3 0 1 0-3-3 3 3 0 0 0 3 3Zm10 0a3 3 0 1 0-3-3 3 3 0 0 0 3 3ZM4 20a4 4 0 0 1 8 0m0 0h8a4 4 0 0 0-8 0Z"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="2"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-        />
-      </svg>
-    ),
-  },
-  {
-    label: "Settings",
-    href: "/settings",
-    icon: (
-      <svg viewBox="0 0 24 24" className="h-5 w-5" aria-hidden="true">
-        <path
-          d="M12 8a4 4 0 1 0 4 4 4 4 0 0 0-4-4Zm8.5 4a7.95 7.95 0 0 0-.14-1.5l2.1-1.64-2-3.46-2.52 1a8.3 8.3 0 0 0-2.6-1.5L12.5 2h-4l-.84 2.9a8.3 8.3 0 0 0-2.6 1.5l-2.52-1-2 3.46 2.1 1.64A7.95 7.95 0 0 0 3.5 12a7.95 7.95 0 0 0 .14 1.5l-2.1 1.64 2 3.46 2.52-1a8.3 8.3 0 0 0 2.6 1.5l.84 2.9h4l.84-2.9a8.3 8.3 0 0 0 2.6-1.5l2.52 1 2-3.46-2.1-1.64a7.95 7.95 0 0 0 .14-1.5Z"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="2"
-          strokeLinejoin="round"
-        />
-      </svg>
-    ),
-  },
-  {
-    label: "Profile",
-    href: "/profile",
-    icon: (
-      <svg viewBox="0 0 24 24" className="h-5 w-5" aria-hidden="true">
-        <path
-          d="M12 12a4 4 0 1 0-4-4 4 4 0 0 0 4 4Zm-7 8a7 7 0 0 1 14 0"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="2"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-        />
-      </svg>
-    ),
-  },
+  { label: "Chat", href: "/chat", icon: MessageSquareText },
+  { label: "Groups", href: "/groups", icon: UsersRound },
+  { label: "Settings", href: "/settings", icon: Settings2 },
+  { label: "Profile", href: "/profile", icon: CircleUserRound },
 ];
 
 const isActiveRoute = (pathname: string, href: string) => {
@@ -81,59 +26,68 @@ const isActiveRoute = (pathname: string, href: string) => {
 export function AppNav({ pathname, showBottomNav }: AppNavProps) {
   return (
     <>
-      <header className="sticky top-0 z-40 w-full border-b theme-border theme-panel backdrop-blur">
-        <div className="mx-auto flex w-full max-w-6xl items-center justify-between gap-4 px-4 py-3">
-          <Link href="/chat" className="flex items-center gap-2">
-            <span className="text-lg font-semibold tracking-tight theme-text">
-              The
-            </span>
-            <span className="text-lg tracking-tight theme-accent font-(--font-fool)">
-              Fool's
-            </span>
-            <span className="text-lg font-semibold tracking-tight theme-text">
-              Chat
-            </span>
+      <header className="sticky top-0 z-40 border-b border-[color:var(--border-1)] bg-[color:rgba(227,236,247,0.78)] shadow-[0_18px_44px_-30px_rgba(15,23,42,0.34)] backdrop-blur-xl">
+        <div className="flex w-full min-w-0 items-center justify-between gap-4 px-3 py-3 sm:px-4">
+          <Link href="/chat" className="flex min-w-0 items-center gap-3">
+            <div className="flex h-10 w-10 items-center justify-center rounded-2xl border border-cyan-300/70 bg-linear-to-br from-cyan-100 via-sky-100 to-amber-100 text-sm font-semibold text-cyan-950 shadow-[0_16px_30px_-22px_rgba(8,145,178,0.52)]">
+              TF
+            </div>
+            <div className="min-w-0">
+              <div className="truncate text-sm font-semibold uppercase tracking-[0.22em] text-[color:var(--accent-text)]">Team chat</div>
+              <div className="truncate text-lg font-semibold tracking-tight text-[color:var(--text-1)]">
+                The <span className="font-(--font-fool) text-cyan-800">Fool&apos;s</span> Chat
+              </div>
+            </div>
           </Link>
+
           <nav className="hidden items-center gap-2 md:flex">
             {navItems.map((item) => {
-              const isActive = isActiveRoute(pathname, item.href);
+              const active = isActiveRoute(pathname, item.href);
+              const Icon = item.icon;
               return (
                 <Link
                   key={item.href}
                   href={item.href}
-                  aria-current={isActive ? "page" : undefined}
-                  className={`inline-flex items-center gap-2 rounded-full border px-4 py-2 text-xs font-semibold uppercase tracking-[0.2em] ${
-                    isActive
-                      ? "theme-panel-strong"
-                      : "theme-chip opacity-80 hover:opacity-100"
-                  }`}
+                  aria-current={active ? "page" : undefined}
+                  className={cn(
+                    "inline-flex items-center gap-2 rounded-full border px-4 py-2 text-sm font-semibold transition-all duration-200 ease-out",
+                    active
+                      ? "border-cyan-300/80 bg-cyan-100/82 text-cyan-950 shadow-[0_12px_28px_-20px_rgba(8,145,178,0.44)]"
+                      : "border-[color:var(--border-1)] bg-[color:rgba(237,243,251,0.72)] text-[color:var(--text-2)] hover:-translate-y-0.5 hover:border-[color:var(--border-2)] hover:bg-[color:rgba(244,248,253,0.94)] hover:text-[color:var(--text-1)]"
+                  )}
                 >
-                  {item.icon}
+                  <Icon className="h-4 w-4" aria-hidden="true" />
                   <span>{item.label}</span>
                 </Link>
               );
             })}
           </nav>
+
+          <div className="hidden lg:flex">
+            <Badge variant="outline">Tinted light</Badge>
+          </div>
         </div>
       </header>
 
       {showBottomNav ? (
-        <nav className="sticky top-[60px] z-30 w-full border-b theme-border theme-panel backdrop-blur md:hidden">
-          <div className="mx-auto flex w-full max-w-6xl items-center gap-2 px-3 py-2">
+        <nav className="fixed inset-x-0 bottom-3 z-40 px-3 md:hidden">
+          <div className="grid w-full grid-cols-4 gap-2 rounded-[28px] border border-[color:var(--border-1)] bg-[color:rgba(228,237,248,0.92)] p-2 shadow-[0_24px_60px_-28px_rgba(15,23,42,0.42)] backdrop-blur-xl">
             {navItems.map((item) => {
-              const isActive = isActiveRoute(pathname, item.href);
+              const active = isActiveRoute(pathname, item.href);
+              const Icon = item.icon;
               return (
                 <Link
                   key={item.href}
                   href={item.href}
-                  aria-current={isActive ? "page" : undefined}
-                  className={`flex min-w-0 flex-1 items-center justify-center gap-2 rounded-xl border px-2 py-2 text-[0.7rem] font-semibold uppercase tracking-[0.2em] ${
-                    isActive
-                      ? "theme-panel-strong"
-                      : "theme-chip opacity-80 hover:opacity-100"
-                  }`}
+                  aria-current={active ? "page" : undefined}
+                  className={cn(
+                    "flex min-w-0 flex-col items-center gap-1 rounded-2xl px-2 py-2 text-[11px] font-semibold transition-all duration-200 ease-out",
+                    active
+                      ? "bg-cyan-100/82 text-cyan-950 shadow-[0_8px_24px_-18px_rgba(8,145,178,0.4)]"
+                      : "text-[color:var(--text-2)] hover:-translate-y-0.5 hover:bg-[color:rgba(240,245,252,0.94)] hover:text-[color:var(--text-1)]"
+                  )}
                 >
-                  {item.icon}
+                  <Icon className="h-4 w-4" aria-hidden="true" />
                   <span className="truncate">{item.label}</span>
                 </Link>
               );

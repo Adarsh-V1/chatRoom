@@ -3,9 +3,10 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { AnimatePresence } from "framer-motion";
 import { useMutation, useQuery } from "convex/react";
-
+import { BellRing } from "lucide-react";
 import { api } from "@/convex/_generated/api";
 import type { Id } from "@/convex/_generated/dataModel";
+import { Badge } from "@/src/components/ui/badge";
 import { MessageBubble, type ChatMessage } from "@/src/features/chat/MessageBubble";
 import { AwaySummaryCard } from "@/src/features/awaySummary/AwaySummaryCard";
 
@@ -13,26 +14,16 @@ interface ChatFeedProps {
   currentUser: string;
   room: string;
   token: string;
-  isPriority?: boolean;
 }
 
-const ChatFeed = ({ currentUser, room, token, isPriority }: ChatFeedProps) => {
-  const feed = useQuery(api.chats.getChats, { room, token: token || undefined });
+const ChatFeed = ({ currentUser, room, token }: ChatFeedProps) => {
+  const feed = useQuery(api.chats.getChats, token ? { room, token } : "skip");
   const bottomRef = useRef<HTMLDivElement | null>(null);
   const scrollRef = useRef<HTMLDivElement | null>(null);
 
   const settings = useQuery(api.settings.getMySettings, token ? { token } : "skip");
-
-  const typingUsers = useQuery(
-    api.typing.getTypingUsers,
-    token ? { token, room } : "skip"
-  );
-
-  const latestSummary = useQuery(
-    api.unread.getLatestSummary,
-    token ? { token, room } : "skip"
-  );
-
+  const typingUsers = useQuery(api.typing.getTypingUsers, token ? { token, room } : "skip");
+  const latestSummary = useQuery(api.unread.getLatestSummary, token ? { token, room } : "skip");
   const unreadInfo = useQuery(api.unread.getUnreadInfo, token ? { token, room } : "skip");
   const mutedUsers = useQuery(api.users.getMutedUsers, token ? { token } : "skip");
   const markReadMutation = useMutation(api.unread.markRead);
@@ -59,9 +50,7 @@ const ChatFeed = ({ currentUser, room, token, isPriority }: ChatFeedProps) => {
   const autoPlayGifs = settings?.autoPlayGifs ?? true;
   const autoDownloadFiles = settings?.autoDownloadFiles ?? false;
 
-  const mutedSet = useMemo(() => {
-    return new Set((mutedUsers ?? []).map((n) => n.toLowerCase()));
-  }, [mutedUsers]);
+  const mutedSet = useMemo(() => new Set((mutedUsers ?? []).map((name) => name.toLowerCase())), [mutedUsers]);
 
   const visibleTypingUsers = useMemo(() => {
     if (!typingUsers) return typingUsers;
@@ -70,27 +59,20 @@ const ChatFeed = ({ currentUser, room, token, isPriority }: ChatFeedProps) => {
   }, [typingUsers, mutedSet]);
 
   const shouldAutoSummarize = useMemo(() => {
-    if (!token) return false;
-    if (!room) return false;
-    if (!unreadInfo) return false;
-    if (unreadInfo.unreadCount <= 0) return false;
-    if (!latestSummary) return false;
-    return true;
-  }, [token, room, unreadInfo, latestSummary, isPriority]);
+    if (!token || !room || !unreadInfo || !latestSummary) return false;
+    return unreadInfo.unreadCount > 0;
+  }, [token, room, unreadInfo, latestSummary]);
 
   const filteredFeed = useMemo(() => {
     if (!feed) return feed;
     if (mutedSet.size === 0) return feed;
-    return feed.filter((chat) => {
-      const name = (chat.username ?? "").trim().toLowerCase();
-      return !mutedSet.has(name);
-    });
+    return feed.filter((chat) => !mutedSet.has((chat.username ?? "").trim().toLowerCase()));
   }, [feed, mutedSet]);
 
   useEffect(() => {
     if (!stickToBottom) return;
-    bottomRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
-  }, [feed?.length, room, stickToBottom]);
+    bottomRef.current?.scrollIntoView({ behavior: reducedMotion ? "auto" : "smooth", block: "end" });
+  }, [feed?.length, room, stickToBottom, reducedMotion]);
 
   useEffect(() => {
     const container = scrollRef.current;
@@ -98,8 +80,7 @@ const ChatFeed = ({ currentUser, room, token, isPriority }: ChatFeedProps) => {
 
     const onScroll = () => {
       const threshold = 48;
-      const distanceFromBottom =
-        container.scrollHeight - container.scrollTop - container.clientHeight;
+      const distanceFromBottom = container.scrollHeight - container.scrollTop - container.clientHeight;
       setStickToBottom(distanceFromBottom < threshold);
     };
 
@@ -137,11 +118,7 @@ const ChatFeed = ({ currentUser, room, token, isPriority }: ChatFeedProps) => {
       return;
     }
 
-    const last = filteredFeed?.[count - 1] as unknown as {
-      _id?: string;
-      username?: string;
-      message?: string;
-    };
+    const last = filteredFeed?.[count - 1] as { _id?: string; username?: string; message?: string } | undefined;
     if (!last || (last.username ?? "") === currentUser) {
       setStickToBottom(true);
       lastCountRef.current = count;
@@ -151,16 +128,19 @@ const ChatFeed = ({ currentUser, room, token, isPriority }: ChatFeedProps) => {
     if (notificationSound && Date.now() - soundPlayedRef.current > 1000) {
       soundPlayedRef.current = Date.now();
       try {
-        const ctx = new (window.AudioContext || (window as any).webkitAudioContext)();
-        const osc = ctx.createOscillator();
-        const gain = ctx.createGain();
-        osc.type = "sine";
-        osc.frequency.value = 880;
-        gain.gain.value = 0.04;
-        osc.connect(gain);
-        gain.connect(ctx.destination);
-        osc.start();
-        osc.stop(ctx.currentTime + 0.08);
+        const AudioCtor = window.AudioContext || (window as typeof window & { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
+        if (AudioCtor) {
+          const ctx = new AudioCtor();
+          const osc = ctx.createOscillator();
+          const gain = ctx.createGain();
+          osc.type = "sine";
+          osc.frequency.value = 880;
+          gain.gain.value = 0.04;
+          osc.connect(gain);
+          gain.connect(ctx.destination);
+          osc.start();
+          osc.stop(ctx.currentTime + 0.08);
+        }
       } catch {
         // Ignore audio errors.
       }
@@ -184,9 +164,7 @@ const ChatFeed = ({ currentUser, room, token, isPriority }: ChatFeedProps) => {
       }
     }
 
-    const label = last.message ? `${last.username ?? "Someone"}: ${last.message}` : "New message";
-    setToast(label);
-
+    setToast(last.message ? `${last.username ?? "Someone"}: ${last.message}` : "New message");
     if (toastTimer.current) clearTimeout(toastTimer.current);
     toastTimer.current = setTimeout(() => setToast(null), 2800);
     lastCountRef.current = count;
@@ -194,17 +172,14 @@ const ChatFeed = ({ currentUser, room, token, isPriority }: ChatFeedProps) => {
 
   useEffect(() => {
     if (!filteredFeed || filteredFeed.length === 0) return;
-    const last = filteredFeed[filteredFeed.length - 1] as unknown as { username?: string };
+    const last = filteredFeed[filteredFeed.length - 1] as { username?: string };
     if ((last.username ?? "") === currentUser) {
       setStickToBottom(true);
     }
   }, [filteredFeed, currentUser]);
 
   useEffect(() => {
-    if (!token) return;
-    if (!room) return;
-    if (!unreadInfo) return;
-    if (hasHandledAway) return;
+    if (!token || !room || !unreadInfo || hasHandledAway) return;
 
     if (!shouldAutoSummarize) {
       setHasHandledAway(true);
@@ -227,18 +202,15 @@ const ChatFeed = ({ currentUser, room, token, isPriority }: ChatFeedProps) => {
   }, [token, room, unreadInfo, hasHandledAway, shouldAutoSummarize]);
 
   useEffect(() => {
-    if (!token) return;
-    if (!hasHandledAway) return;
-    if (!readReceipts) return;
-    if (!filteredFeed || filteredFeed.length === 0) return;
-    const last = filteredFeed[filteredFeed.length - 1] as unknown as { _creationTime?: number };
+    if (!token || !hasHandledAway || !readReceipts || !filteredFeed || filteredFeed.length === 0) return;
+    const last = filteredFeed[filteredFeed.length - 1] as { _creationTime?: number };
     const lastCreationTime = typeof last?._creationTime === "number" ? last._creationTime : null;
     if (lastCreationTime === null) return;
     void markReadMutation({ token, room, lastReadCreationTime: lastCreationTime });
   }, [token, room, filteredFeed, hasHandledAway, markReadMutation, readReceipts]);
 
   return (
-    <div className="min-h-0 flex-1">
+    <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-hidden">
       {latestSummary ? (
         <AwaySummaryCard
           bullets={latestSummary.bullets}
@@ -253,20 +225,17 @@ const ChatFeed = ({ currentUser, room, token, isPriority }: ChatFeedProps) => {
 
       <div
         ref={scrollRef}
-        className="min-h-0 h-full overflow-y-auto rounded-2xl border theme-panel-strong p-3 shadow-inner"
+        className="min-h-0 flex-1 overflow-y-auto rounded-[30px] border border-[color:var(--border-1)] bg-[color:rgba(233,241,251,0.72)] p-3 shadow-inner shadow-cyan-950/6 backdrop-blur-sm sm:p-4"
       >
         {toast ? (
-          <div className="sticky top-2 z-10 mx-auto w-full max-w-md rounded-full border px-4 py-2 text-xs font-semibold shadow backdrop-blur theme-chip">
-            {toast}
+          <div className="sticky top-2 z-10 mx-auto mb-3 flex w-full max-w-lg items-center gap-2 rounded-full border border-cyan-300/70 bg-[color:rgba(244,248,253,0.96)] px-4 py-2 text-sm text-[color:var(--text-2)] shadow-[0_12px_28px_-20px_rgba(15,23,42,0.28)]">
+            <BellRing className="h-4 w-4 text-cyan-700" aria-hidden="true" />
+            <span className="truncate">{toast}</span>
           </div>
         ) : null}
+
         {filteredFeed && filteredFeed.length > 0 ? (
-          <div
-            className={
-              "mt-2 flex flex-col " +
-              (messageDensity === "compact" ? "gap-1" : "gap-2")
-            }
-          >
+          <div className={messageDensity === "compact" ? "flex flex-col gap-2" : "flex flex-col gap-3"}>
             <AnimatePresence initial={false}>
               {filteredFeed.map((chat) => {
                 const msg = chat as unknown as ChatMessage;
@@ -297,24 +266,28 @@ const ChatFeed = ({ currentUser, room, token, isPriority }: ChatFeedProps) => {
                 );
               })}
             </AnimatePresence>
+
             {typingIndicator && visibleTypingUsers && visibleTypingUsers.length > 0 ? (
-              <div className="px-2 text-sm font-semibold theme-faint">
-                {visibleTypingUsers.length === 1
-                  ? `${visibleTypingUsers[0].name} is typing…`
-                  : `${visibleTypingUsers.map((u) => u.name).join(", ")} are typing…`}
+              <div className="px-2 pt-2 text-sm text-[color:var(--text-3)]">
+                <Badge variant="outline" className="normal-case tracking-normal text-xs font-medium">
+                  {visibleTypingUsers.length === 1
+                    ? `${visibleTypingUsers[0].name} is typing...`
+                    : `${visibleTypingUsers.map((user) => user.name).join(", ")} are typing...`}
+                </Badge>
               </div>
             ) : null}
             <div ref={bottomRef} />
           </div>
         ) : (
-          <div className="flex h-full flex-col items-center justify-center gap-2 text-sm theme-faint">
-            <div>No messages yet.</div>
+          <div className="flex h-full flex-col items-center justify-center gap-3 rounded-[26px] border border-dashed border-[color:var(--border-1)] bg-[color:rgba(236,243,251,0.74)] px-6 py-10 text-center text-sm text-[color:var(--text-3)]">
+            <div className="text-base font-medium text-[color:var(--text-2)]">No messages yet</div>
+            <div>Start the thread with a quick update, file, or question.</div>
             {typingIndicator && visibleTypingUsers && visibleTypingUsers.length > 0 ? (
-              <div className="text-sm font-semibold theme-faint">
+              <Badge variant="outline" className="normal-case tracking-normal text-xs font-medium">
                 {visibleTypingUsers.length === 1
-                  ? `${visibleTypingUsers[0].name} is typing…`
-                  : `${visibleTypingUsers.map((u) => u.name).join(", ")} are typing…`}
-              </div>
+                  ? `${visibleTypingUsers[0].name} is typing...`
+                  : `${visibleTypingUsers.map((user) => user.name).join(", ")} are typing...`}
+              </Badge>
             ) : null}
           </div>
         )}

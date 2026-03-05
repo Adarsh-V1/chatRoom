@@ -4,6 +4,9 @@ import React, { useEffect, useMemo, useRef, useState } from "react";
 import { useForm } from "react-hook-form";
 import { useMutation, useQuery } from "convex/react";
 import { Paperclip, Smile, X } from "lucide-react";
+import { Button } from "@/src/components/ui/button";
+import { Input } from "@/src/components/ui/input";
+import { cn } from "@/src/lib/utils";
 import { api } from "@/convex/_generated/api";
 import type { Id } from "@/convex/_generated/dataModel";
 
@@ -40,10 +43,7 @@ const ChatForm = ({ token, room }: ChatFormProps) => {
   } = useForm<ChatFormValues>({ defaultValues: { message: "" } });
 
   const message = watch("message");
-  const canSend = useMemo(
-    () => Boolean((message ?? "").trim()) || Boolean(file),
-    [message, file]
-  );
+  const canSend = useMemo(() => Boolean((message ?? "").trim()) || Boolean(file), [message, file]);
 
   const emojiList = ["😀", "😂", "😍", "👍", "🙏", "🔥", "🎉", "✅", "💡", "🚀"];
 
@@ -92,7 +92,7 @@ const ChatForm = ({ token, room }: ChatFormProps) => {
     if (file) {
       setIsUploading(true);
       try {
-        const uploadUrl = await generateUploadUrl({});
+        const uploadUrl = await generateUploadUrl({ token });
         const res = await fetch(uploadUrl, {
           method: "POST",
           headers: {
@@ -118,11 +118,7 @@ const ChatForm = ({ token, room }: ChatFormProps) => {
         setFile(null);
       }
     } else {
-      await addMessage({
-        token,
-        room,
-        message: trimmed,
-      });
+      await addMessage({ token, room, message: trimmed });
     }
 
     reset({ message: "" });
@@ -135,7 +131,7 @@ const ChatForm = ({ token, room }: ChatFormProps) => {
   return (
     <form
       onSubmit={handleSubmit(onSubmit)}
-      className="relative mt-3 flex w-full flex-nowrap items-center gap-2 rounded-2xl border theme-panel p-2 shadow backdrop-blur"
+      className="relative mt-4 rounded-[28px] border border-[color:var(--border-1)] bg-[color:rgba(226,236,248,0.9)] p-3 shadow-[0_20px_60px_-38px_rgba(15,23,42,0.36)] backdrop-blur-xl"
       autoComplete="off"
     >
       <input
@@ -148,38 +144,62 @@ const ChatForm = ({ token, room }: ChatFormProps) => {
           if (fileInputRef.current) fileInputRef.current.value = "";
         }}
       />
-      <div className="flex min-w-0 flex-1 items-center gap-2">
-        {file ? (
-          <div className="inline-flex max-w-48 items-center gap-2 rounded-xl border px-2 py-1 text-[11px] font-semibold theme-chip">
-            <span className="truncate">{file.name}</span>
-            <button
-              type="button"
-              onClick={() => setFile(null)}
-              className="rounded-md border p-1 text-[10px] font-semibold theme-chip"
-              title="Remove file"
-              aria-label="Remove file"
-            >
-              <X className="h-3 w-3" aria-hidden="true" />
-            </button>
-          </div>
-        ) : null}
 
-        <input
-          type="text"
-          placeholder="Type your message…"
-          {...register("message")}
-          className="min-w-0 flex-1 rounded-xl border px-4 py-3 text-base focus:outline-none focus:ring-2 focus:ring-cyan-400/40 theme-input"
-          onBlur={() => {
-            if (settings && settings.typingIndicator === false) return;
-            if (!token || !room) return;
-            void setTyping({ token, room, isTyping: false });
-          }}
-        />
+      {file ? (
+        <div className="mb-3 inline-flex max-w-full items-center gap-2 rounded-2xl border border-[color:var(--border-1)] bg-[color:rgba(240,245,252,0.84)] px-3 py-2 text-sm text-[color:var(--text-2)]">
+          <Paperclip className="h-4 w-4" aria-hidden="true" />
+          <span className="max-w-[16rem] truncate">{file.name}</span>
+          <button
+            type="button"
+            onClick={() => setFile(null)}
+            className="rounded-full border border-[color:var(--border-1)] bg-[color:rgba(246,249,254,0.98)] p-1 text-[color:var(--text-3)] hover:text-[color:var(--text-1)]"
+            title="Remove file"
+            aria-label="Remove file"
+          >
+            <X className="h-3 w-3" aria-hidden="true" />
+          </button>
+        </div>
+      ) : null}
+
+      <div className="flex flex-col gap-3 lg:flex-row lg:items-center">
+        <div className="flex min-w-0 flex-1 items-center gap-2">
+          <Input
+            type="text"
+            placeholder="Type a message, drop context, or attach a file"
+            {...register("message")}
+            className="h-12 flex-1 rounded-2xl border-[color:var(--border-1)] bg-[color:rgba(240,245,252,0.78)] px-4 text-base"
+            onBlur={() => {
+              if (settings && settings.typingIndicator === false) return;
+              if (!token || !room) return;
+              void setTyping({ token, room, isTyping: false });
+            }}
+          />
+        </div>
+
+        <div className="flex items-center justify-end gap-2">
+          <Button type="button" variant="outline" size="icon" onClick={() => fileInputRef.current?.click()} aria-label="Attach file" title="Attach file">
+            <Paperclip className="h-5 w-5" aria-hidden="true" />
+          </Button>
+          <Button
+            type="button"
+            variant={emojiOpen ? "secondary" : "outline"}
+            size="icon"
+            onClick={() => setEmojiOpen((value) => !value)}
+            aria-label="Insert emoji"
+            title="Insert emoji"
+          >
+            <Smile className="h-5 w-5" aria-hidden="true" />
+          </Button>
+          <Button type="submit" disabled={!canSend || isSubmitting || isUploading} size="lg" className="min-w-28 rounded-2xl">
+            {isSubmitting || isUploading ? "Sending..." : "Send"}
+          </Button>
+        </div>
       </div>
 
       {emojiOpen ? (
-        <div className="absolute bottom-18 right-2 z-10 w-48 rounded-2xl border theme-panel-strong p-2 shadow-lg">
-          <div className="grid grid-cols-5 gap-1">
+        <div className="absolute bottom-[calc(100%+0.75rem)] right-0 z-10 w-56 rounded-[24px] border border-[color:var(--border-1)] bg-[color:rgba(233,241,251,0.96)] p-3 shadow-[0_24px_60px_-30px_rgba(15,23,42,0.32)] backdrop-blur-xl">
+          <div className="mb-2 text-xs font-semibold uppercase tracking-[0.2em] text-[color:var(--accent-text)]">Quick emoji</div>
+          <div className="grid grid-cols-5 gap-2">
             {emojiList.map((emoji) => (
               <button
                 key={emoji}
@@ -188,7 +208,9 @@ const ChatForm = ({ token, room }: ChatFormProps) => {
                   setValue("message", `${message ?? ""}${emoji}`, { shouldDirty: true });
                   setEmojiOpen(false);
                 }}
-                className="rounded-lg border px-1 py-1 text-base theme-chip"
+                className={cn(
+                  "rounded-2xl border border-[color:var(--border-1)] bg-[color:rgba(241,246,253,0.82)] px-1 py-2 text-base transition hover:border-[color:var(--border-2)] hover:bg-[color:rgba(247,250,254,0.98)]"
+                )}
                 aria-label={`Insert ${emoji}`}
               >
                 {emoji}
@@ -197,32 +219,6 @@ const ChatForm = ({ token, room }: ChatFormProps) => {
           </div>
         </div>
       ) : null}
-
-      <button
-        type="button"
-        onClick={() => fileInputRef.current?.click()}
-        className="rounded-xl border p-3 text-xs font-semibold shadow focus:outline-none focus:ring-2 focus:ring-cyan-400/20 theme-chip"
-        aria-label="Attach file"
-        title="Attach file"
-      >
-        <Paperclip className="h-5 w-5" aria-hidden="true" />
-      </button>
-      <button
-        type="button"
-        onClick={() => setEmojiOpen((v) => !v)}
-        className="rounded-xl border p-3 text-xs font-semibold shadow focus:outline-none focus:ring-2 focus:ring-cyan-400/20 theme-chip"
-        aria-label="Insert emoji"
-        title="Insert emoji"
-      >
-        <Smile className="h-5 w-5" aria-hidden="true" />
-      </button>
-      <button
-        type="submit"
-        disabled={!canSend || isSubmitting || isUploading}
-        className="rounded-xl bg-indigo-500 px-4 py-3 text-sm font-semibold text-white shadow hover:bg-indigo-400 focus:outline-none focus:ring-2 focus:ring-indigo-400/70 disabled:cursor-not-allowed disabled:opacity-60 active:scale-[0.98]"
-      >
-        {isSubmitting || isUploading ? "Sending…" : "Send"}
-      </button>
     </form>
   );
 };

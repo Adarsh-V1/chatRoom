@@ -2,6 +2,7 @@ import { mutation, query } from "./_generated/server";
 import { v } from "convex/values";
 
 import { requireUserForToken } from "./lib/session";
+import { assertUserCanAccessRoom } from "./lib/rooms";
 
 import type { QueryCtx } from "./_generated/server";
 import type { Id } from "./_generated/dataModel";
@@ -24,6 +25,7 @@ export const getUnreadInfo = query({
     const { user } = await requireUserForToken(ctx, args.token);
     const room = args.room.trim();
     if (!room) return { unreadCount: 0, fromCreationTime: 0, toCreationTime: 0 };
+    await assertUserCanAccessRoom(ctx, user, room);
 
     const lastReadCreationTime = await getLastReadCreationTime(ctx, user._id, room);
 
@@ -54,6 +56,7 @@ export const getUnreadMessages = query({
     const { user } = await requireUserForToken(ctx, args.token);
     const room = args.room.trim();
     if (!room) return [];
+    await assertUserCanAccessRoom(ctx, user, room);
 
     const lastReadCreationTime = await getLastReadCreationTime(ctx, user._id, room);
     const limit = Math.max(1, Math.min(args.limit ?? 200, 500));
@@ -113,6 +116,7 @@ export const markRead = mutation({
     const { user } = await requireUserForToken(ctx, args.token);
     const room = args.room.trim();
     if (!room) return;
+    await assertUserCanAccessRoom(ctx, user, room);
 
     const existing = await ctx.db
       .query("chatReadStates")
@@ -152,6 +156,7 @@ export const storeSummary = mutation({
     const { user } = await requireUserForToken(ctx, args.token);
     const room = args.room.trim();
     if (!room) return null;
+    await assertUserCanAccessRoom(ctx, user, room);
 
     const bullets = (args.bullets ?? []).map((b) => b.trim()).filter(Boolean).slice(0, 12);
     const now = Date.now();
@@ -176,6 +181,7 @@ export const getLatestSummary = query({
     const { user } = await requireUserForToken(ctx, args.token);
     const room = args.room.trim();
     if (!room) return null;
+    await assertUserCanAccessRoom(ctx, user, room);
 
     const summary = await ctx.db
       .query("chatSummaries")

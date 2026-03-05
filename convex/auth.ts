@@ -1,7 +1,8 @@
 import { mutation, query } from "./_generated/server";
 import { ConvexError, v } from "convex/values";
 
-import { hashShortPassword, verifyShortPassword } from "./lib/password";
+import { hashPassword, verifyPassword } from "./lib/password";
+import { getSessionByToken } from "./lib/session";
 
 function normalizeName(name: string): { trimmed: string; lower: string } {
   const trimmed = name.trim();
@@ -38,14 +39,14 @@ export const loginOrRegister = mutation({
       const hasPassword = Boolean(existing.passwordSaltHex && existing.passwordHashHex);
 
       if (hasPassword) {
-        const ok = await verifyShortPassword({
+        const ok = await verifyPassword({
           password: args.password,
           saltHex: existing.passwordSaltHex!,
           expectedHashHex: existing.passwordHashHex!,
         });
         if (!ok) throw new ConvexError("Invalid password");
       } else {
-        const { saltHex, hashHex } = await hashShortPassword(args.password);
+        const { saltHex, hashHex } = await hashPassword(args.password);
         await ctx.db.patch(existing._id, {
           passwordSaltHex: saltHex,
           passwordHashHex: hashHex,
@@ -59,7 +60,7 @@ export const loginOrRegister = mutation({
 
       userId = existing._id;
     } else {
-      const { saltHex, hashHex } = await hashShortPassword(args.password);
+      const { saltHex, hashHex } = await hashPassword(args.password);
       userId = await ctx.db.insert("users", {
         name: trimmed,
         nameLower: lower,
@@ -85,14 +86,7 @@ export const loginOrRegister = mutation({
 export const getSessionUser = query({
   args: { token: v.string() },
   handler: async (ctx, args) => {
-    const token = args.token.trim();
-    if (!token) return null;
-
-    const session = await ctx.db
-      .query("sessions")
-      .withIndex("by_token", (q) => q.eq("token", token))
-      .first();
-
+    const session = await getSessionByToken(ctx, args.token);
     if (!session) return null;
 
     const user = await ctx.db.get(session.userId);
@@ -109,16 +103,19 @@ export const getSessionUser = query({
 export const touchSession = mutation({
   args: { token: v.string() },
   handler: async (ctx, args) => {
-    const token = args.token.trim();
-    if (!token) return;
-
-    const session = await ctx.db
-      .query("sessions")
-      .withIndex("by_token", (q) => q.eq("token", token))
-      .first();
-
+    const session = await getSessionByToken(ctx, args.token);
     if (!session) return;
 
     await ctx.db.patch(session._id, { lastSeenAt: Date.now() });
+  },
+});
+
+export const revokeSession = mutation({
+  args: { token: v.string() },
+  handler: async (ctx, args) => {
+    const session = await getSessionByToken(ctx, args.token);
+    if (!session) return { revoked: false };
+    await ctx.db.delete(session._id);
+    return { revoked: true };
   },
 });

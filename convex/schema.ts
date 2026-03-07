@@ -7,6 +7,7 @@ export default defineSchema({
     userId: v.optional(v.id("users")),
     username: v.optional(v.string()),
     room: v.optional(v.string()),
+    seq: v.optional(v.number()),
     kind: v.optional(v.union(v.literal("text"), v.literal("file"))),
     storageId: v.optional(v.id("_storage")),
     fileName: v.optional(v.string()),
@@ -21,15 +22,26 @@ export default defineSchema({
       v.union(v.literal("file"), v.literal("snippet"), v.literal("task"))
     ),
     contextData: v.optional(v.string()),
-  }),
+  })
+    .index("by_room", ["room"])
+    .index("by_room_seq", ["room", "seq"])
+    .index("by_userId", ["userId"])
+    .index("by_room_userId", ["room", "userId"]),
 
   // Per-user unread tracking per room.
   chatReadStates: defineTable({
     userId: v.id("users"),
     room: v.string(),
     lastReadCreationTime: v.number(),
+    lastReadSeq: v.optional(v.number()),
     updatedAt: v.number(),
   }).index("by_user_room", ["userId", "room"]),
+
+  roomCounters: defineTable({
+    room: v.string(),
+    messageSeq: v.number(),
+    updatedAt: v.number(),
+  }).index("by_room", ["room"]),
 
   // Temporary “While you were away” summaries per user per room.
   chatSummaries: defineTable({
@@ -65,6 +77,19 @@ export default defineSchema({
     otherNameLower: v.string(),
     createdAt: v.number(),
   }).index("by_user_otherNameLower", ["userId", "otherNameLower"]),
+
+  rateLimits: defineTable({
+    key: v.string(),
+    action: v.string(),
+    userId: v.id("users"),
+    windowStart: v.number(),
+    count: v.number(),
+    blockedUntil: v.optional(v.number()),
+    lastActionAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index("by_key", ["key"])
+    .index("by_user_action", ["userId", "action"]),
 
   // Priority rooms (chat strings) per user.
   chatPriorities: defineTable({

@@ -1,8 +1,141 @@
 import { mutation, query } from "./_generated/server";
-import { v } from "convex/values";
+import { paginationOptsValidator } from "convex/server";
+import { ConvexError, v } from "convex/values";
+import type { Doc, Id } from "./_generated/dataModel";
+import type { MutationCtx, QueryCtx } from "./_generated/server";
 
 import { requireUserForToken } from "./lib/session";
 import { assertUserCanAccessRoom } from "./lib/rooms";
+import { enforceRateLimit } from "./lib/rateLimit";
+import { incrementRoomMessageSeq, markRoomRead } from "./lib/unreadCounters";
+
+const CHAT_MESSAGE_MAX_LENGTH = 2000;
+const FILE_CAPTION_MAX_LENGTH = 600;
+const DUPLICATE_SPAM_WINDOW_MS = 60_000;
+const DUPLICATE_SPAM_THRESHOLD = 3;
+
+function normalizeMessage(text: string): string {
+  return text
+    .trim()
+    .replace(/\s+/g, " ")
+    .toLowerCase();
+}
+
+async function assertNotDuplicateMessageSpam(
+  ctx: MutationCtx,
+  args: {
+    userId: Id<"users">;
+    room: string;
+    message: string;
+  }
+) {
+  const normalized = normalizeMessage(args.message);
+  if (!normalized) {
+    throw new ConvexError("Message cannot be empty");
+  }
+  if (normalized.length > CHAT_MESSAGE_MAX_LENGTH) {
+    throw new ConvexError(`Message is too long (max ${CHAT_MESSAGE_MAX_LENGTH} chars)`);
+  }
+
+  const now = Date.now();
+  const recent = await ctx.db
+    .query("chats")
+    .withIndex("by_userId", (q) => q.eq("userId", args.userId))
+    .order("desc")
+    .take(18);
+
+  let duplicateCountInWindow = 0;
+  for (const chat of recent) {
+    if (now - chat._creationTime > DUPLICATE_SPAM_WINDOW_MS) break;
+    const room = (chat.room ?? "general").trim() || "general";
+    if (room !== args.room) continue;
+    if (normalizeMessage(chat.message ?? "") === normalized) {
+      duplicateCountInWindow += 1;
+    }
+  }
+
+  if (duplicateCountInWindow >= DUPLICATE_SPAM_THRESHOLD) {
+    throw new ConvexError("Duplicate message detected. Please wait before sending the same text again.");
+  }
+}
+
+async function enrichChatsForClient(
+  ctx: QueryCtx,
+  chats: Array<Doc<"chats">>
+) {
+  const userIds = new Set<Id<"users">>();
+  const fallbackNameLowers = new Set<string>();
+
+  for (const chat of chats) {
+    if (chat.userId) {
+      userIds.add(chat.userId);
+      continue;
+    }
+    const usernameLower = chat.username?.trim().toLowerCase();
+    if (usernameLower) fallbackNameLowers.add(usernameLower);
+  }
+
+  const usersById = new Map<Id<"users">, Doc<"users">>();
+  await Promise.all(
+    [...userIds].map(async (userId) => {
+      const user = await ctx.db.get(userId);
+      if (user) usersById.set(userId, user);
+    })
+  );
+
+  const usersByNameLower = new Map<string, Doc<"users">>();
+  await Promise.all(
+    [...fallbackNameLowers].map(async (nameLower) => {
+      const user = await ctx.db
+        .query("users")
+        .withIndex("by_nameLower", (q) => q.eq("nameLower", nameLower))
+        .first();
+      if (user) usersByNameLower.set(nameLower, user);
+    })
+  );
+
+  const profileStorageByChatId = new Map<Id<"chats">, Id<"_storage">>();
+  const neededStorageIds = new Set<Id<"_storage">>();
+
+  for (const chat of chats) {
+    const resolvedUser = chat.userId
+      ? usersById.get(chat.userId)
+      : chat.username
+        ? usersByNameLower.get(chat.username.trim().toLowerCase())
+        : undefined;
+
+    if (resolvedUser?.profilePictureStorageId) {
+      profileStorageByChatId.set(chat._id, resolvedUser.profilePictureStorageId);
+      neededStorageIds.add(resolvedUser.profilePictureStorageId);
+    }
+
+    if (chat.storageId) {
+      neededStorageIds.add(chat.storageId);
+    }
+  }
+
+  const storageUrls = new Map<Id<"_storage">, string | null>();
+  await Promise.all(
+    [...neededStorageIds].map(async (storageId) => {
+      const url = await ctx.storage.getUrl(storageId);
+      storageUrls.set(storageId, url);
+    })
+  );
+
+  return chats.map((chat) => {
+    const profileStorageId = profileStorageByChatId.get(chat._id);
+    const profilePictureUrl = profileStorageId
+      ? (storageUrls.get(profileStorageId) ?? null)
+      : null;
+    const fileUrl = chat.storageId ? (storageUrls.get(chat.storageId) ?? null) : null;
+
+    return {
+      ...chat,
+      fileUrl,
+      profilePictureUrl,
+    };
+  });
+}
 
 export const generateUploadUrl = mutation({
   args: { token: v.string() },
@@ -116,16 +249,41 @@ export const addChat = mutation({
   },
   handler: async (ctx, args) => {
     const { user } = await requireUserForToken(ctx, args.token);
-    await assertUserCanAccessRoom(ctx, user, args.room);
+    const room = args.room.trim() || "general";
+    await assertUserCanAccessRoom(ctx, user, room);
+    await enforceRateLimit(ctx, {
+      userId: user._id,
+      action: "chat:message",
+      limit: 14,
+      windowMs: 10_000,
+      cooldownMs: 8_000,
+      minIntervalMs: 220,
+    });
+    await assertNotDuplicateMessageSpam(ctx, {
+      userId: user._id,
+      room,
+      message: args.message,
+    });
+
+    const seq = await incrementRoomMessageSeq(ctx, room);
+    const now = Date.now();
 
     await ctx.db.insert("chats", {
       message: args.message,
       userId: user._id,
       username: user.name,
-      room: args.room,
+      room,
+      seq,
       kind: "text",
       contextType: args.contextType,
       contextData: args.contextData,
+    });
+
+    await markRoomRead(ctx, {
+      userId: user._id,
+      room,
+      lastReadSeq: seq,
+      lastReadCreationTime: now,
     });
   },
 });
@@ -146,13 +304,38 @@ export const addFileChat = mutation({
   },
   handler: async (ctx, args) => {
     const { user } = await requireUserForToken(ctx, args.token);
-    await assertUserCanAccessRoom(ctx, user, args.room);
+    const room = args.room.trim() || "general";
+    await assertUserCanAccessRoom(ctx, user, room);
+    await enforceRateLimit(ctx, {
+      userId: user._id,
+      action: "chat:file",
+      limit: 6,
+      windowMs: 30_000,
+      cooldownMs: 12_000,
+      minIntervalMs: 900,
+    });
+
+    const caption = (args.message ?? "").trim();
+    if (caption.length > FILE_CAPTION_MAX_LENGTH) {
+      throw new ConvexError(`File caption is too long (max ${FILE_CAPTION_MAX_LENGTH} chars)`);
+    }
+    if (caption) {
+      await assertNotDuplicateMessageSpam(ctx, {
+        userId: user._id,
+        room,
+        message: caption,
+      });
+    }
+
+    const seq = await incrementRoomMessageSeq(ctx, room);
+    const now = Date.now();
 
     await ctx.db.insert("chats", {
-      message: (args.message ?? "").toString(),
+      message: caption,
       userId: user._id,
       username: user.name,
-      room: args.room,
+      room,
+      seq,
       kind: "file",
       storageId: args.storageId,
       fileName: args.fileName,
@@ -160,6 +343,13 @@ export const addFileChat = mutation({
       fileSize: args.fileSize,
       contextType: args.contextType,
       contextData: args.contextData,
+    });
+
+    await markRoomRead(ctx, {
+      userId: user._id,
+      room,
+      lastReadSeq: seq,
+      lastReadCreationTime: now,
     });
   },
 });
@@ -181,50 +371,40 @@ export const softDeleteChat = mutation({
 });
 
 export const getChats = query({
-  args: { room: v.string(), token: v.string() },
+  args: { room: v.string(), token: v.string(), limit: v.optional(v.number()) },
   handler: async (ctx, args) => {
     const { user } = await requireUserForToken(ctx, args.token);
-    await assertUserCanAccessRoom(ctx, user, args.room);
-    const chats = await ctx.db
+    const room = args.room.trim() || "general";
+    await assertUserCanAccessRoom(ctx, user, room);
+
+    const limit = Math.max(20, Math.min(args.limit ?? 220, 500));
+    const recentDesc = await ctx.db
       .query("chats")
-      .filter((q) => q.eq(q.field("room"), args.room))
-      .order("asc")
-      .collect();
+      .withIndex("by_room", (q) => q.eq("room", room))
+      .order("desc")
+      .take(limit);
 
-    const users = await ctx.db.query("users").collect();
-    const byNameLower = new Map(users.map((u) => [u.nameLower, u] as const));
-    const byUserId = new Map(users.map((u) => [u._id, u] as const));
-    const storageUrlCache = new Map<string, string | null>();
+    return await enrichChatsForClient(ctx, [...recentDesc].reverse());
+  },
+});
 
-    const enriched = await Promise.all(
-      chats.map(async (chat) => {
-        const user = chat.userId ? byUserId.get(chat.userId) : null;
-        const usernameLower = !user && chat.username ? chat.username.trim().toLowerCase() : null;
-        const fallbackUser = usernameLower ? byNameLower.get(usernameLower) : null;
-        const resolvedUser = user ?? fallbackUser;
+export const getChatsPage = query({
+  args: { room: v.string(), token: v.string(), paginationOpts: paginationOptsValidator },
+  handler: async (ctx, args) => {
+    const { user } = await requireUserForToken(ctx, args.token);
+    const room = args.room.trim() || "general";
+    await assertUserCanAccessRoom(ctx, user, room);
 
-        const getCachedUrl = async (storageId: string) => {
-          const cached = storageUrlCache.get(storageId);
-          if (cached !== undefined) return cached;
-          const url = await ctx.storage.getUrl(storageId);
-          storageUrlCache.set(storageId, url);
-          return url;
-        };
+    const page = await ctx.db
+      .query("chats")
+      .withIndex("by_room", (q) => q.eq("room", room))
+      .order("desc")
+      .paginate(args.paginationOpts);
 
-        const profilePictureUrl = resolvedUser?.profilePictureStorageId
-          ? await getCachedUrl(resolvedUser.profilePictureStorageId)
-          : null;
-
-        if (chat.storageId) {
-          const fileUrl = await getCachedUrl(chat.storageId);
-          return { ...chat, fileUrl, profilePictureUrl };
-        }
-
-        return { ...chat, fileUrl: null, profilePictureUrl };
-      })
-    );
-
-    return enriched;
+    return {
+      ...page,
+      page: await enrichChatsForClient(ctx, page.page),
+    };
   },
 });
 
@@ -269,6 +449,91 @@ export const backfillLegacyChats = mutation({
       }
     }
     return { patched };
+  },
+});
+
+export const rebuildRoomSequences = mutation({
+  args: { dryRun: v.optional(v.boolean()) },
+  handler: async (ctx, args) => {
+    const dryRun = Boolean(args.dryRun);
+    const chats = await ctx.db.query("chats").order("asc").collect();
+
+    const seqByRoom = new Map<string, number>();
+    let patchedChats = 0;
+
+    for (const chat of chats) {
+      const room = (chat.room ?? "general").trim() || "general";
+      const nextSeq = (seqByRoom.get(room) ?? 0) + 1;
+      seqByRoom.set(room, nextSeq);
+
+      if (dryRun) continue;
+      if (chat.room !== room || chat.seq !== nextSeq) {
+        await ctx.db.patch(chat._id, { room, seq: nextSeq });
+        patchedChats += 1;
+      }
+    }
+
+    if (dryRun) {
+      return {
+        dryRun: true,
+        rooms: seqByRoom.size,
+        chats: chats.length,
+        patchedChats: 0,
+        updatedRoomCounters: 0,
+        updatedReadStates: 0,
+      };
+    }
+
+    let updatedRoomCounters = 0;
+    for (const [room, messageSeq] of seqByRoom.entries()) {
+      const existing = await ctx.db
+        .query("roomCounters")
+        .withIndex("by_room", (q) => q.eq("room", room))
+        .first();
+
+      if (existing) {
+        if (existing.messageSeq !== messageSeq) {
+          await ctx.db.patch(existing._id, { messageSeq, updatedAt: Date.now() });
+          updatedRoomCounters += 1;
+        }
+      } else {
+        await ctx.db.insert("roomCounters", {
+          room,
+          messageSeq,
+          updatedAt: Date.now(),
+        });
+        updatedRoomCounters += 1;
+      }
+    }
+
+    const readStates = await ctx.db.query("chatReadStates").collect();
+    let updatedReadStates = 0;
+    for (const state of readStates) {
+      if (typeof state.lastReadSeq === "number") continue;
+      const room = state.room.trim();
+      let nextReadSeq = 0;
+      if (state.lastReadCreationTime > 0 && room) {
+        const lastReadMessage = await ctx.db
+          .query("chats")
+          .withIndex("by_room", (q) =>
+            q.eq("room", room).lte("_creationTime", state.lastReadCreationTime)
+          )
+          .order("desc")
+          .first();
+        nextReadSeq = Math.max(0, lastReadMessage?.seq ?? 0);
+      }
+      await ctx.db.patch(state._id, { lastReadSeq: nextReadSeq, updatedAt: Date.now() });
+      updatedReadStates += 1;
+    }
+
+    return {
+      dryRun: false,
+      rooms: seqByRoom.size,
+      chats: chats.length,
+      patchedChats,
+      updatedRoomCounters,
+      updatedReadStates,
+    };
   },
 });
 

@@ -23,6 +23,9 @@ interface UserListSidebarProps {
   emptyLabel?: string;
 }
 
+const MAX_REACTIVE_USERS = 80;
+const DISPLAY_LIMIT = 140;
+
 const UserListSidebar = ({
   currentUser,
   token,
@@ -38,24 +41,29 @@ const UserListSidebar = ({
   const [nowMs, setNowMs] = useState(() => Date.now());
   const users = useQuery(
     api.users.listUsersWithProfiles,
-    token ? { token } : "skip"
+    token
+      ? {
+          token,
+          limit: 260,
+          search: query.trim() || undefined,
+        }
+      : "skip"
   );
   const priorityUsers = useQuery(api.priorities.getUserPriorities, { token });
   const setUserPriority = useMutation(api.priorities.setUserPriority);
 
-  const otherNames = (users ?? []).filter((u) => u.name !== currentUser).map((u) => u.name);
-
-  const statuses = useQuery(api.presence.getUserStatuses, token ? { token, names: otherNames } : "skip");
-  const unreadCounts = useQuery(api.unread.getUnreadCountsForUsers, token ? { token, otherNames } : "skip");
-
   const me = (users ?? []).find((u) => u.name === currentUser);
 
   const otherUsers = (users ?? []).filter((u) => u.name !== currentUser);
-  const filteredUsers = useMemo(() => {
-    const q = query.trim().toLowerCase();
-    if (!q) return otherUsers;
-    return otherUsers.filter((u) => u.name.toLowerCase().includes(q));
-  }, [otherUsers, query]);
+  const filteredUsers = useMemo(() => otherUsers, [otherUsers]);
+
+  const displayUsers = useMemo(() => filteredUsers.slice(0, DISPLAY_LIMIT), [filteredUsers]);
+  const otherNames = useMemo(
+    () => displayUsers.slice(0, MAX_REACTIVE_USERS).map((u) => u.name),
+    [displayUsers]
+  );
+  const statuses = useQuery(api.presence.getUserStatuses, token ? { token, names: otherNames } : "skip");
+  const unreadCounts = useQuery(api.unread.getUnreadCountsForUsers, token ? { token, otherNames } : "skip");
 
   const statusMap = new Map((statuses ?? []).map((status) => [status.name.toLowerCase(), status] as const));
   const unreadMap = new Map((unreadCounts ?? []).map((status) => [status.name.toLowerCase(), status.unreadCount] as const));
@@ -106,8 +114,8 @@ const UserListSidebar = ({
       </Card>
 
       <ul className="min-h-0 flex-1 space-y-2 overflow-y-auto pr-1">
-        {filteredUsers.length > 0 ? (
-          filteredUsers.map((user) => {
+        {displayUsers.length > 0 ? (
+          displayUsers.map((user) => {
             const status = statusMap.get(user.name.toLowerCase());
             const unread = unreadMap.get(user.name.toLowerCase()) ?? 0;
             const prioritized = (priorityUsers ?? []).includes(user.name.toLowerCase());
@@ -164,6 +172,11 @@ const UserListSidebar = ({
             {emptyLabel ?? "No matching people."}
           </li>
         )}
+        {filteredUsers.length > displayUsers.length ? (
+          <li className="rounded-[24px] border border-dashed border-[color:var(--border-1)] bg-[color:rgba(236,243,251,0.72)] px-4 py-4 text-xs font-medium uppercase tracking-[0.14em] text-[color:var(--text-3)]">
+            Showing first {displayUsers.length} results. Refine search to narrow down people.
+          </li>
+        ) : null}
       </ul>
     </Card>
   );

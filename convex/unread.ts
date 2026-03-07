@@ -3,21 +3,12 @@ import { v } from "convex/values";
 
 import { requireUserForToken } from "./lib/session";
 import { assertUserCanAccessRoom } from "./lib/rooms";
-
-import type { QueryCtx } from "./_generated/server";
-import type { Id } from "./_generated/dataModel";
-
-async function getLastReadCreationTime(
-  ctx: QueryCtx,
-  userId: Id<"users">,
-  room: string
-) {
-  const existing = await ctx.db
-    .query("chatReadStates")
-    .withIndex("by_user_room", (q) => q.eq("userId", userId).eq("room", room))
-    .first();
-  return existing?.lastReadCreationTime ?? 0;
-}
+import {
+  getReadSeqForRoom,
+  getRoomMessageSeq,
+  getUnreadCountForRoom,
+  markRoomRead,
+} from "./lib/unreadCounters";
 
 export const getUnreadInfo = query({
   args: { token: v.string(), room: v.string() },
@@ -27,25 +18,27 @@ export const getUnreadInfo = query({
     if (!room) return { unreadCount: 0, fromCreationTime: 0, toCreationTime: 0 };
     await assertUserCanAccessRoom(ctx, user, room);
 
-    const lastReadCreationTime = await getLastReadCreationTime(ctx, user._id, room);
+    const readSeq = await getReadSeqForRoom(ctx, user._id, room);
+    const unreadCount = await getUnreadCountForRoom(ctx, user._id, room);
+    if (unreadCount <= 0) {
+      return { unreadCount: 0, fromCreationTime: 0, toCreationTime: 0 };
+    }
 
-    const unread = await ctx.db
+    const firstUnread = await ctx.db
       .query("chats")
-      .filter((q) => q.eq(q.field("room"), room))
-      .filter((q) => q.gt(q.field("_creationTime"), lastReadCreationTime))
+      .withIndex("by_room_seq", (q) => q.eq("room", room).gt("seq", readSeq))
       .order("asc")
-      .collect();
-
-    // Count unread messages that are not authored by the current user.
-    const unreadFromOthers = unread.filter((m) => !m.userId || m.userId !== user._id);
-
-    const first = unreadFromOthers[0];
-    const last = unreadFromOthers[unreadFromOthers.length - 1];
+      .first();
+    const lastUnread = await ctx.db
+      .query("chats")
+      .withIndex("by_room_seq", (q) => q.eq("room", room).gt("seq", readSeq))
+      .order("desc")
+      .first();
 
     return {
-      unreadCount: unreadFromOthers.length,
-      fromCreationTime: first?._creationTime ?? 0,
-      toCreationTime: last?._creationTime ?? 0,
+      unreadCount,
+      fromCreationTime: firstUnread?._creationTime ?? 0,
+      toCreationTime: lastUnread?._creationTime ?? 0,
     };
   },
 });
@@ -58,13 +51,12 @@ export const getUnreadMessages = query({
     if (!room) return [];
     await assertUserCanAccessRoom(ctx, user, room);
 
-    const lastReadCreationTime = await getLastReadCreationTime(ctx, user._id, room);
+    const lastReadSeq = await getReadSeqForRoom(ctx, user._id, room);
     const limit = Math.max(1, Math.min(args.limit ?? 200, 500));
 
     const unread = await ctx.db
       .query("chats")
-      .filter((q) => q.eq(q.field("room"), room))
-      .filter((q) => q.gt(q.field("_creationTime"), lastReadCreationTime))
+      .withIndex("by_room_seq", (q) => q.eq("room", room).gt("seq", lastReadSeq))
       .order("asc")
       .take(limit);
 
@@ -77,6 +69,13 @@ export const getUnreadCountsForUsers = query({
   handler: async (ctx, args) => {
     const { user } = await requireUserForToken(ctx, args.token);
     const meLower = user.nameLower ?? user.name.trim().toLowerCase();
+    const myReadStates = await ctx.db
+      .query("chatReadStates")
+      .withIndex("by_user_room", (q) => q.eq("userId", user._id))
+      .collect();
+    const myReadSeqMap = new Map(
+      myReadStates.map((state) => [state.room, state.lastReadSeq ?? -1] as const)
+    );
 
     const otherNames = args.otherNames
       .map((n) => n.trim())
@@ -93,17 +92,15 @@ export const getUnreadCountsForUsers = query({
       }
 
       const room = [meLower, otherLower].sort().join("-");
-      const lastReadCreationTime = await getLastReadCreationTime(ctx, user._id, room);
-
-      const unread = await ctx.db
-        .query("chats")
-        .filter((q) => q.eq(q.field("room"), room))
-        .filter((q) => q.gt(q.field("_creationTime"), lastReadCreationTime))
-        .order("asc")
-        .collect();
-
-      const unreadFromOthers = unread.filter((m) => !m.userId || m.userId !== user._id);
-      results.push({ name: otherName, unreadCount: unreadFromOthers.length });
+      const roomMessageSeq = await getRoomMessageSeq(ctx, room);
+      const knownReadSeq = myReadSeqMap.get(room);
+      const lastReadSeq =
+        knownReadSeq === undefined
+          ? 0
+          : knownReadSeq >= 0
+            ? knownReadSeq
+            : await getReadSeqForRoom(ctx, user._id, room);
+      results.push({ name: otherName, unreadCount: Math.max(0, roomMessageSeq - lastReadSeq) });
     }
 
     return results;
@@ -111,34 +108,26 @@ export const getUnreadCountsForUsers = query({
 });
 
 export const markRead = mutation({
-  args: { token: v.string(), room: v.string(), lastReadCreationTime: v.number() },
+  args: {
+    token: v.string(),
+    room: v.string(),
+    lastReadCreationTime: v.number(),
+    lastReadSeq: v.optional(v.number()),
+  },
   handler: async (ctx, args) => {
     const { user } = await requireUserForToken(ctx, args.token);
     const room = args.room.trim();
     if (!room) return;
     await assertUserCanAccessRoom(ctx, user, room);
 
-    const existing = await ctx.db
-      .query("chatReadStates")
-      .withIndex("by_user_room", (q) => q.eq("userId", user._id).eq("room", room))
-      .first();
+    const roomMessageSeq = await getRoomMessageSeq(ctx, room);
+    const lastReadSeq = Math.max(0, args.lastReadSeq ?? roomMessageSeq);
 
-    const next = Math.max(0, args.lastReadCreationTime);
-
-    if (existing) {
-      if (existing.lastReadCreationTime >= next) return;
-      await ctx.db.patch(existing._id, {
-        lastReadCreationTime: next,
-        updatedAt: Date.now(),
-      });
-      return;
-    }
-
-    await ctx.db.insert("chatReadStates", {
+    await markRoomRead(ctx, {
       userId: user._id,
       room,
-      lastReadCreationTime: next,
-      updatedAt: Date.now(),
+      lastReadSeq,
+      lastReadCreationTime: Math.max(0, args.lastReadCreationTime),
     });
   },
 });

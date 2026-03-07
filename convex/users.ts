@@ -3,6 +3,17 @@ import { ConvexError, v } from "convex/values";
 
 import { requireUserForToken } from "./lib/session";
 
+const DAY_MS = 24 * 60 * 60 * 1000;
+const DASHBOARD_MESSAGE_SCAN_LIMIT = 3000;
+
+function roomLabel(rawRoom: string): string {
+  const room = rawRoom.trim();
+  if (!room) return "general";
+  if (room === "general") return "general";
+  if (room.startsWith("group:")) return `#${room.slice("group:".length)}`;
+  return "direct";
+}
+
 export const listUsers = query({
   args: { token: v.string() },
   handler: async (ctx, args) => {
@@ -14,14 +25,26 @@ export const listUsers = query({
 });
 
 export const listUsersWithProfiles = query({
-  args: { token: v.string() },
+  args: {
+    token: v.string(),
+    limit: v.optional(v.number()),
+    search: v.optional(v.string()),
+  },
   handler: async (ctx, args) => {
     await requireUserForToken(ctx, args.token);
+    const limit = Math.max(20, Math.min(args.limit ?? 220, 500));
+    const search = (args.search ?? "").trim().toLowerCase();
+
     const users = await ctx.db.query("users").collect();
     users.sort((a, b) => a.name.localeCompare(b.name));
 
+    const filtered = search
+      ? users.filter((user) => user.nameLower.includes(search))
+      : users;
+    const sliced = filtered.slice(0, limit);
+
     return await Promise.all(
-      users.map(async (u) => {
+      sliced.map(async (u) => {
         const profilePictureUrl = u.profilePictureStorageId
           ? await ctx.storage.getUrl(u.profilePictureStorageId)
           : null;
@@ -63,6 +86,117 @@ export const getMe = query({
       : null;
 
     return { name: user.name, profilePictureUrl };
+  },
+});
+
+export const getMyDashboardStats = query({
+  args: { token: v.string() },
+  handler: async (ctx, args) => {
+    const { user } = await requireUserForToken(ctx, args.token);
+    const now = Date.now();
+    const sevenDaysAgo = now - 7 * DAY_MS;
+    const thirtyDaysAgo = now - 30 * DAY_MS;
+
+    const weeklyBuckets = [] as Array<{ key: string; label: string; count: number }>;
+    for (let i = 6; i >= 0; i -= 1) {
+      const ts = now - i * DAY_MS;
+      const date = new Date(ts);
+      weeklyBuckets.push({
+        key: date.toISOString().slice(0, 10),
+        label: date.toLocaleDateString("en-US", { weekday: "short" }),
+        count: 0,
+      });
+    }
+    const weeklyBucketMap = new Map(weeklyBuckets.map((b) => [b.key, b]));
+
+    const messages = await ctx.db
+      .query("chats")
+      .withIndex("by_userId", (q) => q.eq("userId", user._id))
+      .order("desc")
+      .take(DASHBOARD_MESSAGE_SCAN_LIMIT);
+
+    let messages7d = 0;
+    let filesShared7d = 0;
+    const activeRooms = new Set<string>();
+    const activeDays = new Set<string>();
+    const roomCounts = new Map<string, number>();
+
+    for (const message of messages) {
+      const ts = message._creationTime;
+      const room = (message.room ?? "general").trim() || "general";
+
+      if (ts >= thirtyDaysAgo) {
+        roomCounts.set(room, (roomCounts.get(room) ?? 0) + 1);
+      }
+
+      if (ts < sevenDaysAgo) continue;
+
+      messages7d += 1;
+      if (message.kind === "file") filesShared7d += 1;
+      activeRooms.add(room);
+
+      const dayKey = new Date(ts).toISOString().slice(0, 10);
+      activeDays.add(dayKey);
+      const bucket = weeklyBucketMap.get(dayKey);
+      if (bucket) bucket.count += 1;
+    }
+
+    const groupMemberships = await ctx.db
+      .query("groupMembers")
+      .withIndex("by_user", (q) => q.eq("userId", user._id))
+      .collect();
+
+    const pendingInvites = await ctx.db
+      .query("groupInvites")
+      .withIndex("by_user", (q) => q.eq("invitedUserId", user._id))
+      .collect();
+
+    const priorityRooms = await ctx.db
+      .query("chatPriorities")
+      .withIndex("by_user_room", (q) => q.eq("userId", user._id))
+      .collect();
+
+    const priorityUsers = await ctx.db
+      .query("userPriorities")
+      .withIndex("by_user_otherNameLower", (q) => q.eq("userId", user._id))
+      .collect();
+
+    const topRooms = [...roomCounts.entries()]
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 6)
+      .map(([room, count]) => ({
+        room,
+        label: roomLabel(room),
+        count,
+      }));
+
+    const activityScore = Math.min(
+      100,
+      Math.round(
+        messages7d * 1.8 +
+          activeRooms.size * 6 +
+          filesShared7d * 3 +
+          activeDays.size * 2
+      )
+    );
+
+    return {
+      kpis: {
+        messages7d,
+        filesShared7d,
+        activeRooms7d: activeRooms.size,
+        groupsJoined: groupMemberships.length,
+        pendingInvites: pendingInvites.length,
+        priorityTargets:
+          priorityRooms.filter((r) => r.priority).length +
+          priorityUsers.filter((u) => u.priority).length,
+        activeDays7d: activeDays.size,
+      },
+      weeklyVolume: weeklyBuckets.map((b) => ({ label: b.label, count: b.count })),
+      topRooms,
+      activityScore,
+      sampledMessages: messages.length,
+    };
   },
 });
 

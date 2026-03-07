@@ -2,7 +2,7 @@
 
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { AnimatePresence } from "framer-motion";
-import { useMutation, useQuery } from "convex/react";
+import { useMutation, usePaginatedQuery, useQuery } from "convex/react";
 import { BellRing } from "lucide-react";
 import { api } from "@/convex/_generated/api";
 import type { Id } from "@/convex/_generated/dataModel";
@@ -17,7 +17,12 @@ interface ChatFeedProps {
 }
 
 const ChatFeed = ({ currentUser, room, token }: ChatFeedProps) => {
-  const feed = useQuery(api.chats.getChats, token ? { room, token } : "skip");
+  const { results: pagedFeed, status: pageStatus, isLoading: isFeedLoading, loadMore } = usePaginatedQuery(
+    api.chats.getChatsPage,
+    token ? { room, token } : "skip",
+    { initialNumItems: 70 }
+  );
+  const feed = useMemo(() => [...pagedFeed].reverse(), [pagedFeed]);
   const bottomRef = useRef<HTMLDivElement | null>(null);
   const scrollRef = useRef<HTMLDivElement | null>(null);
 
@@ -72,7 +77,7 @@ const ChatFeed = ({ currentUser, room, token }: ChatFeedProps) => {
   useEffect(() => {
     if (!stickToBottom) return;
     bottomRef.current?.scrollIntoView({ behavior: reducedMotion ? "auto" : "smooth", block: "end" });
-  }, [feed?.length, room, stickToBottom, reducedMotion]);
+  }, [feed.length, room, stickToBottom, reducedMotion]);
 
   useEffect(() => {
     const container = scrollRef.current;
@@ -227,6 +232,19 @@ const ChatFeed = ({ currentUser, room, token }: ChatFeedProps) => {
         ref={scrollRef}
         className="min-h-0 flex-1 overflow-y-auto rounded-[30px] border border-[color:var(--border-1)] bg-[color:rgba(233,241,251,0.72)] p-3 shadow-inner shadow-cyan-950/6 backdrop-blur-sm sm:p-4"
       >
+        {pageStatus === "CanLoadMore" || pageStatus === "LoadingMore" ? (
+          <div className="mb-3 flex justify-center">
+            <button
+              type="button"
+              onClick={() => loadMore(60)}
+              disabled={pageStatus === "LoadingMore"}
+              className="rounded-full border border-[color:var(--border-1)] bg-[color:rgba(244,248,253,0.95)] px-4 py-2 text-xs font-semibold uppercase tracking-[0.16em] text-[color:var(--text-2)] transition hover:border-[color:var(--border-2)] hover:text-[color:var(--text-1)] disabled:opacity-60"
+            >
+              {pageStatus === "LoadingMore" ? "Loading older..." : "Load older messages"}
+            </button>
+          </div>
+        ) : null}
+
         {toast ? (
           <div className="sticky top-2 z-10 mx-auto mb-3 flex w-full max-w-lg items-center gap-2 rounded-full border border-cyan-300/70 bg-[color:rgba(244,248,253,0.96)] px-4 py-2 text-sm text-[color:var(--text-2)] shadow-[0_12px_28px_-20px_rgba(15,23,42,0.28)]">
             <BellRing className="h-4 w-4 text-cyan-700" aria-hidden="true" />
@@ -280,8 +298,14 @@ const ChatFeed = ({ currentUser, room, token }: ChatFeedProps) => {
           </div>
         ) : (
           <div className="flex h-full flex-col items-center justify-center gap-3 rounded-[26px] border border-dashed border-[color:var(--border-1)] bg-[color:rgba(236,243,251,0.74)] px-6 py-10 text-center text-sm text-[color:var(--text-3)]">
-            <div className="text-base font-medium text-[color:var(--text-2)]">No messages yet</div>
-            <div>Start the thread with a quick update, file, or question.</div>
+            <div className="text-base font-medium text-[color:var(--text-2)]">
+              {isFeedLoading ? "Loading messages..." : "No messages yet"}
+            </div>
+            <div>
+              {isFeedLoading
+                ? "Syncing this room in real time."
+                : "Start the thread with a quick update, file, or question."}
+            </div>
             {typingIndicator && visibleTypingUsers && visibleTypingUsers.length > 0 ? (
               <Badge variant="outline" className="normal-case tracking-normal text-xs font-medium">
                 {visibleTypingUsers.length === 1

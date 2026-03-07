@@ -14,6 +14,7 @@ import { LoginCard } from "@/src/features/auth/LoginCard";
 import { useChatAuth } from "@/src/features/auth/useChatAuth";
 import { useAvatarPreview } from "@/src/features/auth/useAvatarPreview";
 import { ProfilePhotoPicker } from "@/src/features/profile/ProfilePhotoPicker";
+import { ProfileDashboard } from "@/src/features/profile/ProfileDashboard";
 import { Avatar } from "@/src/features/ui/Avatar";
 
 const ProfileClient = () => {
@@ -24,6 +25,10 @@ const ProfileClient = () => {
 
   const token = auth.token ?? "";
   const me = useQuery(api.users.getMe, auth.isLoggedIn ? { token } : "skip");
+  const dashboardStats = useQuery(
+    api.users.getMyDashboardStats,
+    auth.isLoggedIn ? { token } : "skip"
+  );
 
   const [name, setName] = useState("");
   const [profileFile, setProfileFile] = useState<File | null>(null);
@@ -136,6 +141,8 @@ const ProfileClient = () => {
           description="Keep your display name and avatar current so chat, groups, and calls stay recognizable across devices."
           action={<Badge variant="secondary">Synced locally</Badge>}
         />
+
+        <ProfileDashboard name={displayName || "You"} stats={dashboardStats} />
 
         <div className="grid gap-4 xl:grid-cols-[1.1fr_0.9fr]">
           <Card>

@@ -18,8 +18,8 @@ export const Switch = React.forwardRef<HTMLButtonElement, SwitchProps>(function 
       className={cn(
         "inline-flex h-6 w-11 shrink-0 items-center rounded-full border transition-all duration-200 ease-out focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-300 focus-visible:ring-offset-2",
         checked
-          ? "border-cyan-500/80 bg-linear-to-r from-cyan-600 via-sky-600 to-teal-600 shadow-[0_10px_22px_-14px_rgba(8,145,178,0.55)]"
-          : "border-[color:var(--border-1)] bg-[color:rgba(196,210,229,0.86)]",
+          ? "border-[color:var(--brand-border)] bg-linear-to-r from-[color:var(--brand-1)] via-[color:var(--brand-2)] to-[color:var(--brand-3)] shadow-[var(--brand-shadow)]"
+          : "border-[color:var(--border-1)] bg-[color:var(--surface-4)]",
         className
       )}
       {...props}

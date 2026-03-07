@@ -4,6 +4,7 @@ import React, { useEffect, useMemo, useRef, useState } from "react";
 import { useForm } from "react-hook-form";
 import { useMutation, useQuery } from "convex/react";
 import { Paperclip, Smile, X } from "lucide-react";
+import { toast } from "sonner";
 import { Button } from "@/src/components/ui/button";
 import { Input } from "@/src/components/ui/input";
 import { cn } from "@/src/lib/utils";
@@ -29,6 +30,7 @@ const ChatForm = ({ token, room }: ChatFormProps) => {
   const [file, setFile] = useState<File | null>(null);
   const [isUploading, setIsUploading] = useState(false);
   const [emojiOpen, setEmojiOpen] = useState(false);
+  const [dragActive, setDragActive] = useState(false);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const typingTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const lastTypingSentRef = useRef(0);
@@ -88,10 +90,11 @@ const ChatForm = ({ token, room }: ChatFormProps) => {
   const onSubmit = async (data: ChatFormValues) => {
     const trimmed = (data.message ?? "").trim();
     if (!trimmed && !file) return;
+    let fileSent = false;
 
-    if (file) {
-      setIsUploading(true);
-      try {
+    try {
+      if (file) {
+        setIsUploading(true);
         const uploadUrl = await generateUploadUrl({ token });
         const res = await fetch(uploadUrl, {
           method: "POST",
@@ -113,26 +116,51 @@ const ChatForm = ({ token, room }: ChatFormProps) => {
           fileSize: file.size,
           message: trimmed || undefined,
         });
-      } finally {
-        setIsUploading(false);
+        fileSent = true;
+        toast.success("Attachment sent");
+      } else {
+        await addMessage({ token, room, message: trimmed });
+      }
+
+      reset({ message: "" });
+      setEmojiOpen(false);
+      if (token && room && (!settings || settings.typingIndicator !== false)) {
+        void setTyping({ token, room, isTyping: false });
+      }
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Failed to send message");
+    } finally {
+      setIsUploading(false);
+      if (fileSent) {
         setFile(null);
       }
-    } else {
-      await addMessage({ token, room, message: trimmed });
-    }
-
-    reset({ message: "" });
-    setEmojiOpen(false);
-    if (token && room && (!settings || settings.typingIndicator !== false)) {
-      void setTyping({ token, room, isTyping: false });
     }
   };
 
   return (
     <form
       onSubmit={handleSubmit(onSubmit)}
-      className="relative mt-4 rounded-[28px] border border-[color:var(--border-1)] bg-[color:rgba(226,236,248,0.9)] p-3 shadow-[0_20px_60px_-38px_rgba(15,23,42,0.36)] backdrop-blur-xl"
+      className={cn(
+        "relative mt-4 shrink-0 rounded-[28px] border border-[color:var(--border-1)] bg-[color:var(--surface-4)] p-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] shadow-[var(--shadow-soft)] backdrop-blur-xl",
+        dragActive && "border-[color:var(--brand-border)] bg-[color:var(--surface-3)]"
+      )}
       autoComplete="off"
+      onDragOver={(event) => {
+        event.preventDefault();
+        if (!dragActive) setDragActive(true);
+      }}
+      onDragLeave={(event) => {
+        event.preventDefault();
+        setDragActive(false);
+      }}
+      onDrop={(event) => {
+        event.preventDefault();
+        setDragActive(false);
+        const dropped = event.dataTransfer.files?.[0] ?? null;
+        if (!dropped) return;
+        setFile(dropped);
+        toast.success("File attached");
+      }}
     >
       <input
         ref={fileInputRef}
@@ -146,13 +174,13 @@ const ChatForm = ({ token, room }: ChatFormProps) => {
       />
 
       {file ? (
-        <div className="mb-3 inline-flex max-w-full items-center gap-2 rounded-2xl border border-[color:var(--border-1)] bg-[color:rgba(240,245,252,0.84)] px-3 py-2 text-sm text-[color:var(--text-2)]">
+        <div className="mb-3 inline-flex max-w-full items-center gap-2 rounded-2xl border border-[color:var(--border-1)] bg-[color:var(--surface-2)] px-3 py-2 text-sm text-[color:var(--text-2)]">
           <Paperclip className="h-4 w-4" aria-hidden="true" />
           <span className="max-w-[16rem] truncate">{file.name}</span>
           <button
             type="button"
             onClick={() => setFile(null)}
-            className="rounded-full border border-[color:var(--border-1)] bg-[color:rgba(246,249,254,0.98)] p-1 text-[color:var(--text-3)] hover:text-[color:var(--text-1)]"
+            className="rounded-full border border-[color:var(--border-1)] bg-[color:var(--surface-1)] p-1 text-[color:var(--text-3)] hover:text-[color:var(--text-1)]"
             title="Remove file"
             aria-label="Remove file"
           >
@@ -167,7 +195,7 @@ const ChatForm = ({ token, room }: ChatFormProps) => {
             type="text"
             placeholder="Type a message, drop context, or attach a file"
             {...register("message")}
-            className="h-12 flex-1 rounded-2xl border-[color:var(--border-1)] bg-[color:rgba(240,245,252,0.78)] px-4 text-base"
+            className="h-12 flex-1 rounded-2xl border-[color:var(--border-1)] bg-[color:var(--input-bg)] px-4 text-base"
             onBlur={() => {
               if (settings && settings.typingIndicator === false) return;
               if (!token || !room) return;
@@ -197,7 +225,7 @@ const ChatForm = ({ token, room }: ChatFormProps) => {
       </div>
 
       {emojiOpen ? (
-        <div className="absolute bottom-[calc(100%+0.75rem)] right-0 z-10 w-56 rounded-[24px] border border-[color:var(--border-1)] bg-[color:rgba(233,241,251,0.96)] p-3 shadow-[0_24px_60px_-30px_rgba(15,23,42,0.32)] backdrop-blur-xl">
+        <div className="absolute bottom-[calc(100%+0.75rem)] right-0 z-10 w-56 rounded-[24px] border border-[color:var(--border-1)] bg-[color:var(--surface-1)] p-3 shadow-[var(--shadow-soft)] backdrop-blur-xl">
           <div className="mb-2 text-xs font-semibold uppercase tracking-[0.2em] text-[color:var(--accent-text)]">Quick emoji</div>
           <div className="grid grid-cols-5 gap-2">
             {emojiList.map((emoji) => (
@@ -209,7 +237,7 @@ const ChatForm = ({ token, room }: ChatFormProps) => {
                   setEmojiOpen(false);
                 }}
                 className={cn(
-                  "rounded-2xl border border-[color:var(--border-1)] bg-[color:rgba(241,246,253,0.82)] px-1 py-2 text-base transition hover:border-[color:var(--border-2)] hover:bg-[color:rgba(247,250,254,0.98)]"
+                  "rounded-2xl border border-[color:var(--border-1)] bg-[color:var(--surface-2)] px-1 py-2 text-base transition hover:border-[color:var(--border-2)] hover:bg-[color:var(--surface-1)]"
                 )}
                 aria-label={`Insert ${emoji}`}
               >

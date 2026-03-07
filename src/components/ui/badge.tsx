@@ -4,11 +4,11 @@ import { cn } from "@/src/lib/utils";
 type BadgeVariant = "default" | "secondary" | "outline" | "success" | "warning";
 
 const variantClasses: Record<BadgeVariant, string> = {
-  default: "border-cyan-300/80 bg-cyan-100/80 text-cyan-900",
-  secondary: "border-[color:var(--border-1)] bg-[color:rgba(217,228,243,0.92)] text-[color:var(--text-2)]",
-  outline: "border-[color:var(--border-1)] bg-[color:rgba(240,245,252,0.7)] text-[color:var(--text-2)]",
-  success: "border-emerald-300/80 bg-emerald-100/80 text-emerald-900",
-  warning: "border-amber-300/80 bg-amber-100/82 text-amber-900",
+  default: "border-[color:var(--brand-border)] bg-[color:var(--surface-3)] text-[color:var(--accent-text)]",
+  secondary: "border-[color:var(--border-1)] bg-[color:var(--surface-3)] text-[color:var(--text-2)]",
+  outline: "border-[color:var(--border-1)] bg-[color:var(--button-outline-bg)] text-[color:var(--text-2)]",
+  success: "border-[color:var(--success-border)] bg-[color:var(--success-soft)] text-[color:var(--success-text)]",
+  warning: "border-[color:var(--warning-border)] bg-[color:var(--warning-soft)] text-[color:var(--warning-text)]",
 };
 
 export function Badge({

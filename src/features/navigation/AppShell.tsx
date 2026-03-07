@@ -3,23 +3,30 @@
 import type { ReactNode } from "react";
 import { usePathname } from "next/navigation";
 import { AppNav } from "./AppNav";
+import { NotificationManager } from "@/src/features/notifications/NotificationManager";
 import { SettingsSync } from "@/src/features/settings/SettingsSync";
 
 interface AppShellProps {
   children: ReactNode;
 }
 
-const HIDE_BOTTOM_NAV_PREFIXES = ["/call"];
-
 export function AppShell({ children }: AppShellProps) {
   const pathname = usePathname() ?? "";
-  const showBottomNav = !HIDE_BOTTOM_NAV_PREFIXES.some((prefix) => pathname.startsWith(prefix));
+  const isLandingPage = pathname === "/";
+
+  if (isLandingPage) {
+    return <div className="theme-page min-h-screen text-[color:var(--text-1)]">{children}</div>;
+  }
 
   return (
     <div className="theme-page min-h-screen text-[color:var(--text-1)]">
-      <AppNav pathname={pathname} showBottomNav={showBottomNav} />
+      <a href="#app-main" className="skip-link">
+        Skip to main content
+      </a>
+      <AppNav pathname={pathname} />
       <SettingsSync />
-      <div className={showBottomNav ? "pb-24 md:pb-0" : undefined}>{children}</div>
+      <NotificationManager />
+      {children}
     </div>
   );
 }

@@ -1,0 +1,31 @@
+config:
+  target: "http://127.0.0.1:3100"
+  processor: "./processor.cjs"
+  phases:
+    - duration: 20
+      arrivalRate: 20
+      name: warmup
+    - duration: 40
+      arrivalRate: 80
+      name: steady
+  defaults:
+    headers:
+      Content-Type: application/json
+      x-perf-key: "{{ perfApiKey }}"
+  ensure:
+    thresholds:
+      - http.response_time.p95: 450
+      - http.response_time.p99: 900
+      - http.codes.200: 99
+
+scenarios:
+  - name: chat snapshot read-heavy
+    flow:
+      - function: setVars
+      - post:
+          url: /api/perf/chat-snapshot
+          json:
+            token: "{{ chatToken }}"
+            room: "{{ chatRoom }}"
+            messageLimit: 70
+      - think: 0.15

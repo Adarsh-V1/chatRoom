@@ -5,10 +5,25 @@ import { useMutation, useQuery } from "convex/react";
 
 import { api } from "@/convex/_generated/api";
 import { clearAuth, loadAuth, saveAuth } from "@/src/features/auth/authStorage";
+import { markTourPending } from "@/src/features/onboarding/tourStorage";
 
 type LoginArgs = {
   name: string;
   password: string;
+};
+
+type LoginResponse = {
+  token: string;
+  name: string;
+  isNewUser?: boolean;
+};
+
+type GoogleLoginResponse = {
+  ok: boolean;
+  token?: string;
+  name?: string;
+  isNewUser?: boolean;
+  error?: string;
 };
 
 export function useChatAuth() {
@@ -82,10 +97,34 @@ export function useChatAuth() {
       const next = { token: result.token, name: result.name };
       saveAuth(next);
       setAuth(next);
+      if (result.isNewUser) {
+        markTourPending(result.name);
+      }
       return result;
     },
     [loginOrRegister]
   );
+
+  const loginWithGoogle = useCallback(async (credential: string) => {
+    const response = await fetch("/api/auth/google", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ credential }),
+    });
+
+    const json = (await response.json()) as GoogleLoginResponse;
+    if (!response.ok || !json.ok || !json.token || !json.name) {
+      throw new Error(json.error ?? "Google login failed");
+    }
+
+    const next = { token: json.token, name: json.name };
+    saveAuth(next);
+    setAuth(next);
+    if (json.isNewUser) {
+      markTourPending(json.name);
+    }
+    return { ...next, isNewUser: json.isNewUser } satisfies LoginResponse;
+  }, []);
 
   const logout = useCallback(async () => {
     if (token) {
@@ -108,6 +147,7 @@ export function useChatAuth() {
     name: resolvedName,
     me,
     login,
+    loginWithGoogle,
     logout,
     isReady,
     isLoggedIn,

@@ -72,6 +72,19 @@ export default defineSchema({
     updatedAt: v.number(),
   }).index("by_userId", ["userId"]),
 
+  pushSubscriptions: defineTable({
+    userId: v.id("users"),
+    endpoint: v.string(),
+    expirationTime: v.optional(v.number()),
+    p256dh: v.string(),
+    auth: v.string(),
+    userAgent: v.optional(v.string()),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index("by_userId", ["userId"])
+    .index("by_endpoint", ["endpoint"]),
+
   mutedUsers: defineTable({
     userId: v.id("users"),
     otherNameLower: v.string(),
@@ -110,11 +123,18 @@ export default defineSchema({
   users: defineTable({
     name: v.string(),
     nameLower: v.string(),
+    email: v.optional(v.string()),
+    emailLower: v.optional(v.string()),
+    googleSub: v.optional(v.string()),
+    externalAvatarUrl: v.optional(v.string()),
     updatedAt: v.number(),
     profilePictureStorageId: v.optional(v.id("_storage")),
     passwordSaltHex: v.optional(v.string()),
     passwordHashHex: v.optional(v.string()),
-  }).index("by_nameLower", ["nameLower"]),
+  })
+    .index("by_nameLower", ["nameLower"])
+    .index("by_emailLower", ["emailLower"])
+    .index("by_googleSub", ["googleSub"]),
   sessions: defineTable({
     userId: v.id("users"),
     token: v.string(),
@@ -189,4 +209,17 @@ export default defineSchema({
   })
     .index("by_roomId", ["roomId"])
     .index("by_room_createdAt", ["roomId", "createdAt"]),
+
+  contactSubmissions: defineTable({
+    name: v.string(),
+    email: v.string(),
+    emailLower: v.string(),
+    subject: v.optional(v.string()),
+    message: v.string(),
+    source: v.string(),
+    createdAt: v.number(),
+    status: v.union(v.literal("new"), v.literal("reviewed")),
+  })
+    .index("by_createdAt", ["createdAt"])
+    .index("by_emailLower", ["emailLower"]),
 });

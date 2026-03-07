@@ -3,9 +3,10 @@ import { paginationOptsValidator } from "convex/server";
 import { ConvexError, v } from "convex/values";
 import type { Doc, Id } from "./_generated/dataModel";
 import type { MutationCtx, QueryCtx } from "./_generated/server";
+import { internal } from "./_generated/api";
 
 import { requireUserForToken } from "./lib/session";
-import { assertUserCanAccessRoom } from "./lib/rooms";
+import { assertUserCanAccessRoom, parseDirectRoom, parseGroupSlug } from "./lib/rooms";
 import { enforceRateLimit } from "./lib/rateLimit";
 import { incrementRoomMessageSeq, markRoomRead } from "./lib/unreadCounters";
 
@@ -95,6 +96,7 @@ async function enrichChatsForClient(
   );
 
   const profileStorageByChatId = new Map<Id<"chats">, Id<"_storage">>();
+  const externalAvatarByChatId = new Map<Id<"chats">, string | null>();
   const neededStorageIds = new Set<Id<"_storage">>();
 
   for (const chat of chats) {
@@ -108,6 +110,7 @@ async function enrichChatsForClient(
       profileStorageByChatId.set(chat._id, resolvedUser.profilePictureStorageId);
       neededStorageIds.add(resolvedUser.profilePictureStorageId);
     }
+    externalAvatarByChatId.set(chat._id, resolvedUser?.externalAvatarUrl ?? null);
 
     if (chat.storageId) {
       neededStorageIds.add(chat.storageId);
@@ -124,9 +127,10 @@ async function enrichChatsForClient(
 
   return chats.map((chat) => {
     const profileStorageId = profileStorageByChatId.get(chat._id);
+    const externalAvatar = externalAvatarByChatId.get(chat._id) ?? null;
     const profilePictureUrl = profileStorageId
       ? (storageUrls.get(profileStorageId) ?? null)
-      : null;
+      : externalAvatar;
     const fileUrl = chat.storageId ? (storageUrls.get(chat.storageId) ?? null) : null;
 
     return {
@@ -135,6 +139,86 @@ async function enrichChatsForClient(
       profilePictureUrl,
     };
   });
+}
+
+function roomToNotificationHref(room: string): string {
+  if (room === "general") {
+    return "/chat";
+  }
+
+  const groupSlug = parseGroupSlug(room);
+  if (groupSlug) {
+    return `/groups/${groupSlug}`;
+  }
+
+  return `/chat/${room}`;
+}
+
+function buildNotificationPreview(args: {
+  kind: "text" | "file";
+  message?: string;
+  fileName?: string;
+}) {
+  const trimmedMessage = args.message?.trim() ?? "";
+
+  if (args.kind === "file") {
+    if (trimmedMessage) {
+      return trimmedMessage.slice(0, 140);
+    }
+    if (args.fileName?.trim()) {
+      return `Sent ${args.fileName.trim()}`;
+    }
+    return "Sent an attachment";
+  }
+
+  return trimmedMessage.slice(0, 140) || "Sent a new message";
+}
+
+async function listNotificationRecipientIds(
+  ctx: MutationCtx,
+  user: Doc<"users">,
+  room: string
+): Promise<Array<Id<"users">>> {
+  if (room === "general") {
+    const users = await ctx.db.query("users").collect();
+    return users.filter((candidate) => candidate._id !== user._id).map((candidate) => candidate._id);
+  }
+
+  const groupSlug = parseGroupSlug(room);
+  if (groupSlug) {
+    const group = await ctx.db
+      .query("groups")
+      .withIndex("by_slug", (q) => q.eq("slug", groupSlug))
+      .first();
+
+    if (!group) {
+      return [];
+    }
+
+    const members = await ctx.db
+      .query("groupMembers")
+      .withIndex("by_group", (q) => q.eq("groupId", group._id))
+      .collect();
+
+    return members.filter((member) => member.userId !== user._id).map((member) => member.userId);
+  }
+
+  const directRoom = parseDirectRoom(room);
+  if (!directRoom) {
+    return [];
+  }
+
+  const otherParticipant = directRoom.participants.find((participant) => participant !== user.nameLower);
+  if (!otherParticipant) {
+    return [];
+  }
+
+  const otherUser = await ctx.db
+    .query("users")
+    .withIndex("by_nameLower", (q) => q.eq("nameLower", otherParticipant))
+    .first();
+
+  return otherUser ? [otherUser._id] : [];
 }
 
 export const generateUploadUrl = mutation({
@@ -195,7 +279,7 @@ export const listUsersWithProfiles = query({
       users.map(async (u) => {
         const profilePictureUrl = u.profilePictureStorageId
           ? await ctx.storage.getUrl(u.profilePictureStorageId)
-          : null;
+          : (u.externalAvatarUrl ?? null);
         return { name: u.name, profilePictureUrl };
       })
     );
@@ -221,7 +305,7 @@ export const getUserProfile = query({
 
     const profilePictureUrl = user.profilePictureStorageId
       ? await ctx.storage.getUrl(user.profilePictureStorageId)
-      : null;
+      : (user.externalAvatarUrl ?? null);
 
     return { name: user.name, profilePictureUrl };
   },
@@ -285,6 +369,18 @@ export const addChat = mutation({
       lastReadSeq: seq,
       lastReadCreationTime: now,
     });
+
+    const recipientUserIds = await listNotificationRecipientIds(ctx, user, room);
+    if (recipientUserIds.length > 0) {
+      await ctx.scheduler.runAfter(0, internal.pushDelivery.sendChatMessageNotification, {
+        senderName: user.name,
+        senderNameLower: user.nameLower,
+        room,
+        href: roomToNotificationHref(room),
+        preview: buildNotificationPreview({ kind: "text", message: args.message }),
+        recipientUserIds,
+      });
+    }
   },
 });
 
@@ -351,6 +447,22 @@ export const addFileChat = mutation({
       lastReadSeq: seq,
       lastReadCreationTime: now,
     });
+
+    const recipientUserIds = await listNotificationRecipientIds(ctx, user, room);
+    if (recipientUserIds.length > 0) {
+      await ctx.scheduler.runAfter(0, internal.pushDelivery.sendChatMessageNotification, {
+        senderName: user.name,
+        senderNameLower: user.nameLower,
+        room,
+        href: roomToNotificationHref(room),
+        preview: buildNotificationPreview({
+          kind: "file",
+          message: caption,
+          fileName: args.fileName,
+        }),
+        recipientUserIds,
+      });
+    }
   },
 });
 
@@ -545,6 +657,7 @@ export const setUserProfilePicture = mutation({
 
     await ctx.db.patch(user._id, {
       profilePictureStorageId: args.storageId,
+      externalAvatarUrl: undefined,
       updatedAt: Date.now(),
     });
   },
@@ -556,6 +669,7 @@ export const setMyProfilePicture = mutation({
     const { user } = await requireUserForToken(ctx, args.token);
     await ctx.db.patch(user._id, {
       profilePictureStorageId: args.storageId,
+      externalAvatarUrl: undefined,
       updatedAt: Date.now(),
     });
   },

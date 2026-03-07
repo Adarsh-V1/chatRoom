@@ -1,5 +1,5 @@
-import { redirect } from "next/navigation";
+import { LandingPageClient } from "@/src/features/landing/LandingPageClient";
 
 export default function Home() {
-  redirect("/chat");
+  return <LandingPageClient />;
 }

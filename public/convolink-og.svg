@@ -1,0 +1,31 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630" viewBox="0 0 1200 630" role="img" aria-labelledby="title desc">
+  <title id="title">ConvoLink social preview</title>
+  <desc id="desc">ConvoLink brand preview with modern gradient background and linked logo mark.</desc>
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#f0fdfa"/>
+      <stop offset="0.46" stop-color="#e0f2fe"/>
+      <stop offset="1" stop-color="#fef3c7"/>
+    </linearGradient>
+    <radialGradient id="orbA" cx="0" cy="0" r="1" gradientTransform="translate(1040 100) rotate(130) scale(500)">
+      <stop stop-color="#22d3ee" stop-opacity="0.45"/>
+      <stop offset="1" stop-color="#22d3ee" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="orbB" cx="0" cy="0" r="1" gradientTransform="translate(180 520) rotate(20) scale(400)">
+      <stop stop-color="#34d399" stop-opacity="0.38"/>
+      <stop offset="1" stop-color="#34d399" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+  <rect width="1200" height="630" fill="url(#bg)"/>
+  <rect width="1200" height="630" fill="url(#orbA)"/>
+  <rect width="1200" height="630" fill="url(#orbB)"/>
+
+  <rect x="84" y="84" width="180" height="180" rx="42" fill="#ecfeff" stroke="#99f6e4" stroke-width="6"/>
+  <path d="M136 201 174 164 213 126" fill="none" stroke="#0f766e" stroke-width="13" stroke-linecap="round" stroke-linejoin="round"/>
+  <circle cx="136" cy="201" r="12" fill="#0f766e"/>
+  <circle cx="174" cy="164" r="12" fill="#0f766e"/>
+  <circle cx="213" cy="126" r="12" fill="#0f766e"/>
+
+  <text x="290" y="171" font-size="92" font-family="'Plus Jakarta Sans', 'Manrope', 'Inter', sans-serif" font-weight="700" fill="#081126" letter-spacing="-1.5">Convo<tspan fill="#0f766e">Link</tspan></text>
+  <text x="290" y="242" font-size="36" font-family="'Plus Jakarta Sans', 'Manrope', 'Inter', sans-serif" font-weight="500" fill="#1a3154">Modern team chat workspace powered by Convex</text>
+</svg>

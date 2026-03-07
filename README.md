@@ -1,4 +1,26 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+This is a [Next.js](https://nextjs.org) + Convex chat project.
+
+## Authentication
+
+The app supports:
+
+- Username/password login
+- Google One Tap / Google Sign-In (server-verified ID token flow)
+
+### Google auth setup
+
+Add these env vars:
+
+```bash
+NEXT_PUBLIC_GOOGLE_CLIENT_ID=your_google_web_client_id
+GOOGLE_CLIENT_ID=your_google_web_client_id
+```
+
+Notes:
+
+- `NEXT_PUBLIC_GOOGLE_CLIENT_ID` is used on the client for Google Identity Services.
+- `GOOGLE_CLIENT_ID` is used on the server to verify Google ID tokens in `/api/auth/google`.
+- If users upload a custom avatar later, that avatar overrides Google profile photo in chat UI.
 
 ## Getting Started
 

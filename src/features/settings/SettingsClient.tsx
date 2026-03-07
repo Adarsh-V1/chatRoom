@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useMutation, useQuery } from "convex/react";
 import { Download, Minus, MoonStar, Plus, Volume2 } from "lucide-react";
+import { toast } from "sonner";
 import { api } from "@/convex/_generated/api";
 import type { Id } from "@/convex/_generated/dataModel";
 import { LoadingScreen, PageContainer, PageHeader, PageShell } from "@/src/components/app/page-shell";
@@ -13,6 +14,10 @@ import { Input } from "@/src/components/ui/input";
 import { Switch } from "@/src/components/ui/switch";
 import { LoginCard } from "@/src/features/auth/LoginCard";
 import { useChatAuth } from "@/src/features/auth/useChatAuth";
+import { usePushNotifications } from "@/src/features/notifications/usePushNotifications";
+import { useTheme } from "@/src/app/ThemeProvider";
+import { ThemeToggle } from "@/src/features/theme/ThemeToggle";
+import { THEME_MAP } from "@/src/features/theme/theme-options";
 
 function SettingRow({
   label,
@@ -24,7 +29,7 @@ function SettingRow({
   control: React.ReactNode;
 }) {
   return (
-    <div className="flex flex-col gap-3 rounded-[24px] border border-[color:var(--border-1)] bg-[color:rgba(216,228,243,0.82)] p-4 sm:flex-row sm:items-center sm:justify-between">
+    <div className="flex flex-col gap-3 rounded-[24px] border border-[color:var(--border-1)] bg-[color:var(--surface-4)] p-4 sm:flex-row sm:items-center sm:justify-between">
       <div>
         <div className="text-sm font-medium text-[color:var(--text-1)]">{label}</div>
         <div className="text-sm text-[color:var(--text-3)]">{description}</div>
@@ -36,6 +41,7 @@ function SettingRow({
 
 const SettingsClient = () => {
   const auth = useChatAuth();
+  const { theme } = useTheme();
   const generateUploadUrl = useMutation(api.chats.generateUploadUrl);
   const setMyProfilePicture = useMutation(api.users.setMyProfilePicture);
   const settings = useQuery(api.settings.getMySettings, auth.isLoggedIn ? { token: auth.token ?? "" } : "skip");
@@ -54,17 +60,23 @@ const SettingsClient = () => {
 
   const [userQuery, setUserQuery] = useState("");
   const [notificationError, setNotificationError] = useState<string | null>(null);
-  const [exportError, setExportError] = useState<string | null>(null);
+  const { enableNotifications, disableNotifications, isBusy: isPushBusy, isSupported: isPushSupported, isConfigured: isPushConfigured } =
+    usePushNotifications();
 
   useEffect(() => {
     if (!exportData || exportNonce === 0) return;
-    const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: "application/json" });
-    const url = URL.createObjectURL(blob);
-    const anchor = document.createElement("a");
-    anchor.href = url;
-    anchor.download = `chat-export-${Date.now()}.json`;
-    anchor.click();
-    URL.revokeObjectURL(url);
+    try {
+      const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: "application/json" });
+      const url = URL.createObjectURL(blob);
+      const anchor = document.createElement("a");
+      anchor.href = url;
+      anchor.download = `chat-export-${Date.now()}.json`;
+      anchor.click();
+      URL.revokeObjectURL(url);
+      toast.success("Chat export downloaded");
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Failed to export chats");
+    }
   }, [exportData, exportNonce]);
 
   const mutedSet = useMemo(() => new Set((mutedUsers ?? []).map((name) => name.toLowerCase())), [mutedUsers]);
@@ -88,6 +100,7 @@ const SettingsClient = () => {
             <LoginCard
               title="Open settings"
               subtitle="Sign in to manage notifications, density, privacy, accessibility, and media behavior."
+              onGoogleSubmit={auth.loginWithGoogle}
               onSubmit={async ({ name, password, profileFile }) => {
                 const result = await auth.login({ name, password });
 
@@ -117,6 +130,30 @@ const SettingsClient = () => {
   }
 
   const token = auth.token ?? "";
+  const activeTheme = THEME_MAP.get(theme);
+
+  const updatePreference = async (
+    patch: {
+      notificationSound?: boolean;
+      desktopNotifications?: boolean;
+      messageDensity?: "comfortable" | "compact";
+      fontScale?: number;
+      readReceipts?: boolean;
+      typingIndicator?: boolean;
+      reducedMotion?: boolean;
+      highContrast?: boolean;
+      autoPlayGifs?: boolean;
+      autoDownloadFiles?: boolean;
+    },
+    label: string
+  ) => {
+    try {
+      await updateSettings({ token, ...patch });
+      toast.success(`${label} updated`);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : `Failed to update ${label.toLowerCase()}`);
+    }
+  };
 
   return (
     <PageShell>
@@ -125,7 +162,7 @@ const SettingsClient = () => {
           eyebrow="Settings"
           title="Personal preferences"
           description="Control how the app looks, sounds, and behaves without losing the fast messaging workflow."
-          action={<Badge variant="secondary">Tinted light theme</Badge>}
+          action={<ThemeToggle />}
         />
 
         <div className="grid gap-4 xl:grid-cols-[1.1fr_0.9fr]">
@@ -133,13 +170,13 @@ const SettingsClient = () => {
             <Card>
               <CardHeader>
                 <CardTitle>Appearance</CardTitle>
-                <CardDescription>The UI is fixed to light mode. Use density, font scale, and contrast to tune readability.</CardDescription>
+                <CardDescription>Choose from five full-site themes, then tune density, font scale, and contrast for readability.</CardDescription>
               </CardHeader>
               <CardContent className="space-y-3">
                 <SettingRow
-                  label="Tinted light interface"
-                  description="The workspace keeps a brighter look, but with more color in the surfaces and chrome."
-                  control={<Badge variant="default">Enabled</Badge>}
+                  label="Color theme"
+                  description="Applies across chat, dashboard, profile, groups, calls, and text surfaces."
+                  control={<ThemeToggle className="w-full sm:w-auto" />}
                 />
                 <SettingRow
                   label="Message density"
@@ -149,7 +186,7 @@ const SettingsClient = () => {
                       variant="secondary"
                       onClick={() => {
                         const next = settings?.messageDensity === "compact" ? "comfortable" : "compact";
-                        void updateSettings({ token, messageDensity: next });
+                        void updatePreference({ messageDensity: next }, "Message density");
                       }}
                     >
                       {settings?.messageDensity ?? "comfortable"}
@@ -160,26 +197,26 @@ const SettingsClient = () => {
                   label="Font scale"
                   description="Increase or decrease chat text without zooming the whole page."
                   control={
-                    <div className="inline-flex items-center gap-2 rounded-full border border-[color:var(--border-1)] bg-[color:rgba(237,243,251,0.86)] px-2 py-1 shadow-sm">
+                    <div className="inline-flex items-center gap-2 rounded-full border border-[color:var(--border-1)] bg-[color:var(--surface-2)] px-2 py-1 shadow-sm">
                       <Button
                         variant="ghost"
                         size="icon"
                         className="h-8 w-8 rounded-full"
                         onClick={() => {
                           const next = Math.max(0.9, Math.round(((settings?.fontScale ?? 1) - 0.1) * 10) / 10);
-                          void updateSettings({ token, fontScale: next });
+                          void updatePreference({ fontScale: next }, "Font scale");
                         }}
                       >
                         <Minus className="h-4 w-4" aria-hidden="true" />
                       </Button>
-                      <span className="min-w-10 text-center text-sm font-medium text-slate-700">{settings?.fontScale ?? 1}x</span>
+                      <span className="min-w-10 text-center text-sm font-medium text-[color:var(--text-2)]">{settings?.fontScale ?? 1}x</span>
                       <Button
                         variant="ghost"
                         size="icon"
                         className="h-8 w-8 rounded-full"
                         onClick={() => {
                           const next = Math.min(1.3, Math.round(((settings?.fontScale ?? 1) + 0.1) * 10) / 10);
-                          void updateSettings({ token, fontScale: next });
+                          void updatePreference({ fontScale: next }, "Font scale");
                         }}
                       >
                         <Plus className="h-4 w-4" aria-hidden="true" />
@@ -190,7 +227,7 @@ const SettingsClient = () => {
                 <SettingRow
                   label="High contrast"
                   description="Increase contrast for text and borders across all screens."
-                  control={<Switch checked={settings?.highContrast ?? false} onClick={() => settings && void updateSettings({ token, highContrast: !settings.highContrast })} />}
+                  control={<Switch checked={settings?.highContrast ?? false} onClick={() => settings && void updatePreference({ highContrast: !settings.highContrast }, "High contrast")} />}
                 />
               </CardContent>
             </Card>
@@ -204,11 +241,11 @@ const SettingsClient = () => {
                 <SettingRow
                   label="Notification sound"
                   description="Play a short tone when a new message arrives from someone else."
-                  control={<Switch checked={settings?.notificationSound ?? true} onClick={() => settings && void updateSettings({ token, notificationSound: !settings.notificationSound })} />}
+                  control={<Switch checked={settings?.notificationSound ?? true} onClick={() => settings && void updatePreference({ notificationSound: !settings.notificationSound }, "Notification sound")} />}
                 />
                 <SettingRow
                   label="Desktop notifications"
-                  description="Show browser notifications when the tab is in the background."
+                  description="Show native push notifications, even when the website is closed, and reopen the matching room when clicked."
                   control={
                     <Switch
                       checked={settings?.desktopNotifications ?? false}
@@ -216,24 +253,43 @@ const SettingsClient = () => {
                         if (!settings) return;
                         setNotificationError(null);
                         if (settings.desktopNotifications) {
-                          void updateSettings({ token, desktopNotifications: false });
+                          try {
+                            await disableNotifications();
+                            toast.success("Desktop notifications updated");
+                          } catch (err) {
+                            const message =
+                              err instanceof Error ? err.message : "Failed to disable desktop notifications";
+                            setNotificationError(message);
+                            toast.error(message);
+                          }
                           return;
                         }
-                        if (typeof Notification === "undefined") {
-                          setNotificationError("Desktop notifications are not supported in this browser.");
+                        if (!isPushSupported) {
+                          const message = "Push notifications are not supported in this browser.";
+                          setNotificationError(message);
+                          toast.error(message);
                           return;
                         }
-                        const permission = await Notification.requestPermission();
-                        if (permission !== "granted") {
-                          setNotificationError("Notification permission was denied.");
+                        if (!isPushConfigured) {
+                          const message = "Push notifications are not configured on the server yet.";
+                          setNotificationError(message);
+                          toast.error(message);
                           return;
                         }
-                        void updateSettings({ token, desktopNotifications: true });
+                        try {
+                          await enableNotifications();
+                          toast.success("Desktop notifications updated");
+                        } catch (err) {
+                          const message = err instanceof Error ? err.message : "Failed to enable desktop notifications";
+                          setNotificationError(message);
+                          toast.error(message);
+                        }
                       }}
+                      disabled={isPushBusy}
                     />
                   }
                 />
-                {notificationError ? <div className="rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">{notificationError}</div> : null}
+                {notificationError ? <div className="rounded-2xl border border-[color:var(--danger-border)] bg-[color:var(--danger-soft)] px-4 py-3 text-sm text-[color:var(--danger-text)]">{notificationError}</div> : null}
               </CardContent>
             </Card>
 
@@ -246,17 +302,17 @@ const SettingsClient = () => {
                 <SettingRow
                   label="Read receipts"
                   description="Mark rooms as read when you reach the newest message."
-                  control={<Switch checked={settings?.readReceipts ?? true} onClick={() => settings && void updateSettings({ token, readReceipts: !settings.readReceipts })} />}
+                  control={<Switch checked={settings?.readReceipts ?? true} onClick={() => settings && void updatePreference({ readReceipts: !settings.readReceipts }, "Read receipts")} />}
                 />
                 <SettingRow
                   label="Typing indicator"
                   description="Broadcast when you are actively writing in a room."
-                  control={<Switch checked={settings?.typingIndicator ?? true} onClick={() => settings && void updateSettings({ token, typingIndicator: !settings.typingIndicator })} />}
+                  control={<Switch checked={settings?.typingIndicator ?? true} onClick={() => settings && void updatePreference({ typingIndicator: !settings.typingIndicator }, "Typing indicator")} />}
                 />
                 <SettingRow
                   label="Reduced motion"
                   description="Trim motion-heavy transitions and smooth scrolling behavior."
-                  control={<Switch checked={settings?.reducedMotion ?? false} onClick={() => settings && void updateSettings({ token, reducedMotion: !settings.reducedMotion })} />}
+                  control={<Switch checked={settings?.reducedMotion ?? false} onClick={() => settings && void updatePreference({ reducedMotion: !settings.reducedMotion }, "Reduced motion")} />}
                 />
               </CardContent>
             </Card>
@@ -270,12 +326,12 @@ const SettingsClient = () => {
                 <SettingRow
                   label="Auto-play GIFs"
                   description="Animate GIF attachments inline instead of showing a static download prompt."
-                  control={<Switch checked={settings?.autoPlayGifs ?? true} onClick={() => settings && void updateSettings({ token, autoPlayGifs: !settings.autoPlayGifs })} />}
+                  control={<Switch checked={settings?.autoPlayGifs ?? true} onClick={() => settings && void updatePreference({ autoPlayGifs: !settings.autoPlayGifs }, "Auto-play GIFs")} />}
                 />
                 <SettingRow
                   label="Auto-download files"
                   description="Immediately download files you receive from other people."
-                  control={<Switch checked={settings?.autoDownloadFiles ?? false} onClick={() => settings && void updateSettings({ token, autoDownloadFiles: !settings.autoDownloadFiles })} />}
+                  control={<Switch checked={settings?.autoDownloadFiles ?? false} onClick={() => settings && void updatePreference({ autoDownloadFiles: !settings.autoDownloadFiles }, "Auto-download files")} />}
                 />
               </CardContent>
             </Card>
@@ -295,7 +351,7 @@ const SettingsClient = () => {
                     filteredUsers.map((name) => {
                       const isMuted = mutedSet.has(name.toLowerCase());
                       return (
-                        <div key={name} className="flex items-center justify-between rounded-[24px] border border-[color:var(--border-1)] bg-[color:rgba(216,228,243,0.82)] px-4 py-3">
+                        <div key={name} className="flex items-center justify-between rounded-[24px] border border-[color:var(--border-1)] bg-[color:var(--surface-4)] px-4 py-3">
                           <div>
                             <div className="text-sm font-medium text-[color:var(--text-1)]">{name}</div>
                             <div className="text-sm text-[color:var(--text-3)]">{isMuted ? "Muted across chat surfaces" : "Messages remain visible"}</div>
@@ -303,8 +359,13 @@ const SettingsClient = () => {
                           <Button
                             variant={isMuted ? "destructive" : "secondary"}
                             size="sm"
-                            onClick={() => {
-                              void setMutedUser({ token, otherName: name, muted: !isMuted });
+                            onClick={async () => {
+                              try {
+                                await setMutedUser({ token, otherName: name, muted: !isMuted });
+                                toast.success(isMuted ? `${name} unmuted` : `${name} muted`);
+                              } catch (err) {
+                                toast.error(err instanceof Error ? err.message : "Failed to update mute setting");
+                              }
                             }}
                           >
                             {isMuted ? "Unmute" : "Mute"}
@@ -313,7 +374,7 @@ const SettingsClient = () => {
                       );
                     })
                   ) : (
-                    <div className="rounded-[24px] border border-dashed border-[color:var(--border-1)] bg-[color:rgba(236,243,251,0.74)] px-4 py-6 text-sm text-[color:var(--text-3)]">No matching users.</div>
+                    <div className="rounded-[24px] border border-dashed border-[color:var(--border-1)] bg-[color:var(--muted-surface)] px-4 py-6 text-sm text-[color:var(--text-3)]">No matching users.</div>
                   )}
                 </div>
               </CardContent>
@@ -329,18 +390,25 @@ const SettingsClient = () => {
                 <Button
                   className="w-full justify-center"
                   onClick={() => {
-                    setExportError(null);
                     setExportNonce(Date.now());
                   }}
                 >
                   <Download className="h-4 w-4" aria-hidden="true" />
                   Export chat history
                 </Button>
-                <Button variant="outline" className="w-full justify-center" onClick={auth.logout}>
+                <Button
+                  variant="outline"
+                  className="w-full justify-center"
+                  onClick={() => {
+                    void (async () => {
+                      await auth.logout();
+                      toast.success("Local session cleared");
+                    })();
+                  }}
+                >
                   <MoonStar className="h-4 w-4" aria-hidden="true" />
                   Clear local session
                 </Button>
-                {exportError ? <div className="rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">{exportError}</div> : null}
               </CardContent>
             </Card>
 
@@ -350,12 +418,13 @@ const SettingsClient = () => {
                 <CardTitle>Current profile</CardTitle>
                 <CardDescription>Your settings apply per signed-in user on this browser session.</CardDescription>
               </CardHeader>
-              <CardContent className="space-y-3 text-sm text-slate-600">
-                <div className="rounded-[24px] border border-[color:var(--border-1)] bg-[color:rgba(216,228,243,0.82)] p-4">
+              <CardContent className="space-y-3 text-sm text-[color:var(--text-2)]">
+                <div className="rounded-[24px] border border-[color:var(--border-1)] bg-[color:var(--surface-4)] p-4">
                   <div className="text-xs font-semibold uppercase tracking-[0.2em] text-[color:var(--accent-text)]">Theme</div>
-                  <div className="mt-2 text-lg font-semibold text-[color:var(--text-1)]">Tinted light</div>
+                  <div className="mt-2 text-lg font-semibold text-[color:var(--text-1)]">{activeTheme?.label ?? "Ocean Glass"}</div>
+                  <div className="mt-1 text-sm text-[color:var(--text-3)]">{activeTheme?.mode === "dark" ? "Dark theme" : "Light theme"}</div>
                 </div>
-                <div className="rounded-[24px] border border-[color:var(--border-1)] bg-[color:rgba(216,228,243,0.82)] p-4">
+                <div className="rounded-[24px] border border-[color:var(--border-1)] bg-[color:var(--surface-4)] p-4">
                   <div className="flex items-center gap-2 text-[color:var(--text-1)]">
                     <Volume2 className="h-4 w-4" aria-hidden="true" />
                     Notification sound {settings?.notificationSound ? "enabled" : "disabled"}

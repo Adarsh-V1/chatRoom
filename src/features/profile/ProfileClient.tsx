@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useMutation, useQuery } from "convex/react";
 import { LogOut, Save } from "lucide-react";
+import { toast } from "sonner";
 import { api } from "@/convex/_generated/api";
 import type { Id } from "@/convex/_generated/dataModel";
 import { LoadingScreen, PageContainer, PageHeader, PageShell } from "@/src/components/app/page-shell";
@@ -56,6 +57,7 @@ const ProfileClient = () => {
     const trimmed = name.trim();
     if (!trimmed) {
       setError("Name is required");
+      toast.error("Name is required");
       return;
     }
 
@@ -85,8 +87,11 @@ const ProfileClient = () => {
       }
 
       setSuccess("Profile updated successfully.");
+      toast.success("Profile updated successfully");
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to update profile");
+      const message = err instanceof Error ? err.message : "Failed to update profile";
+      setError(message);
+      toast.error(message);
     } finally {
       setSaving(false);
     }
@@ -104,6 +109,7 @@ const ProfileClient = () => {
             <LoginCard
               title="Open profile"
               subtitle="Sign in to update your display name and profile photo across chat, groups, and calls."
+              onGoogleSubmit={auth.loginWithGoogle}
               onSubmit={async ({ name, password, profileFile }) => {
                 const result = await auth.login({ name, password });
 
@@ -151,7 +157,7 @@ const ProfileClient = () => {
               <CardDescription>Changes apply immediately to your message bubbles, member lists, and active call presence.</CardDescription>
             </CardHeader>
             <CardContent>
-              <div className="flex flex-wrap items-center gap-4 rounded-[28px] border border-[color:var(--border-1)] bg-[color:rgba(216,228,243,0.82)] p-4">
+              <div className="flex flex-wrap items-center gap-4 rounded-[28px] border border-[color:var(--border-1)] bg-[color:var(--surface-4)] p-4">
                 <Avatar name={displayName || "You"} url={me?.profilePictureUrl} size="lg" className="h-16 w-16 rounded-[24px]" />
                 <div className="min-w-0">
                   <div className="text-sm font-medium text-[color:var(--text-3)]">Signed in as</div>
@@ -166,15 +172,23 @@ const ProfileClient = () => {
 
               <ProfilePhotoPicker nameForFallback={displayName || "You"} file={profileFile} onFileChange={setProfileFile} />
 
-              {error ? <div className="mt-4 rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">{error}</div> : null}
-              {success ? <div className="mt-4 rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-700">{success}</div> : null}
+              {error ? <div className="mt-4 rounded-2xl border border-[color:var(--danger-border)] bg-[color:var(--danger-soft)] px-4 py-3 text-sm text-[color:var(--danger-text)]">{error}</div> : null}
+              {success ? <div className="mt-4 rounded-2xl border border-[color:var(--success-border)] bg-[color:var(--success-soft)] px-4 py-3 text-sm text-[color:var(--success-text)]">{success}</div> : null}
 
               <div className="mt-6 flex flex-wrap items-center gap-3">
                 <Button onClick={saveProfile} disabled={!canSave}>
                   <Save className="h-4 w-4" aria-hidden="true" />
                   {saving ? "Saving..." : "Save changes"}
                 </Button>
-                <Button variant="outline" onClick={auth.logout}>
+                <Button
+                  variant="outline"
+                  onClick={() => {
+                    void (async () => {
+                      await auth.logout();
+                      toast.success("Signed out");
+                    })();
+                  }}
+                >
                   <LogOut className="h-4 w-4" aria-hidden="true" />
                   Sign out
                 </Button>
@@ -189,16 +203,16 @@ const ProfileClient = () => {
               <CardDescription>This keeps your visual identity consistent across chat, groups, and call tiles.</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
-              <div className="rounded-[28px] border border-[color:var(--border-1)] bg-[color:rgba(237,243,251,0.84)] p-4 shadow-sm">
+              <div className="rounded-[28px] border border-[color:var(--border-1)] bg-[color:var(--surface-2)] p-4 shadow-sm">
                 <div className="flex items-start gap-3">
                   <Avatar name={displayName || "You"} url={previewUrl ?? me?.profilePictureUrl} size="md" />
-                  <div className="min-w-0 rounded-[24px] border border-[color:var(--border-1)] bg-[color:rgba(216,228,243,0.82)] px-4 py-3">
+                  <div className="min-w-0 rounded-[24px] border border-[color:var(--border-1)] bg-[color:var(--surface-4)] px-4 py-3">
                     <div className="text-sm font-semibold text-[color:var(--text-1)]">{displayName || "You"}</div>
                     <div className="mt-1 text-sm leading-6 text-[color:var(--text-2)]">This is how your profile appears beside a normal chat message.</div>
                   </div>
                 </div>
               </div>
-              <div className="rounded-[28px] border border-[color:var(--border-1)] bg-[color:rgba(216,228,243,0.82)] p-4 text-sm text-[color:var(--text-2)]">
+              <div className="rounded-[28px] border border-[color:var(--border-1)] bg-[color:var(--surface-4)] p-4 text-sm text-[color:var(--text-2)]">
                 Use a short, recognizable display name. Clear photos with centered framing work best in the sidebar and call layout.
               </div>
             </CardContent>

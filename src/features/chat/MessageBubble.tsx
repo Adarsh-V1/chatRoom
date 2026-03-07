@@ -45,7 +45,7 @@ function formatTime(ts?: number) {
   return date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
 }
 
-export function MessageBubble({
+function MessageBubbleBase({
   msg,
   isMe,
   density = "comfortable",
@@ -90,30 +90,30 @@ export function MessageBubble({
           "max-w-[min(82%,44rem)] rounded-[24px] border px-4 py-3 shadow-sm",
           compact && "px-3 py-2",
           isMe
-            ? "border-cyan-400/40 bg-linear-to-br from-cyan-600 via-sky-600 to-teal-600 text-white"
-            : "border-[color:var(--border-1)] bg-[color:rgba(240,245,252,0.9)] text-[color:var(--text-1)]"
+            ? "border-[color:var(--brand-border)] [background-image:var(--message-me-bg)] text-[color:var(--message-me-text)]"
+            : "border-[color:var(--border-1)] bg-[color:var(--message-other-bg)] text-[color:var(--message-other-text)]"
         )}
       >
         <div className="mb-2 flex items-center justify-between gap-3">
           <div className="flex min-w-0 items-center gap-2">
-            <div className={cn("truncate font-semibold", isMe ? "text-sky-50/90" : "text-[color:var(--text-2)]")} style={metaStyle}>
+            <div className={cn("truncate font-semibold", isMe ? "text-[color:var(--message-me-text)] opacity-90" : "text-[color:var(--text-2)]")} style={metaStyle}>
               {name}
             </div>
             {msg.kind === "file" ? (
-              <Badge variant={isMe ? "outline" : "secondary"} className={isMe ? "border-white/28 bg-white/10 text-white" : undefined}>
+              <Badge variant={isMe ? "outline" : "secondary"} className={isMe ? "border-white/25 bg-white/10 text-[color:var(--message-me-text)]" : undefined}>
                 Attachment
               </Badge>
             ) : null}
           </div>
           {timeLabel ? (
-            <div className={cn("shrink-0 font-medium", isMe ? "text-sky-100/80" : "text-[color:var(--text-3)]")} style={metaStyle}>
+            <div className={cn("shrink-0 font-medium", isMe ? "text-[color:var(--message-me-text)] opacity-80" : "text-[color:var(--text-3)]")} style={metaStyle}>
               {timeLabel}
             </div>
           ) : null}
         </div>
 
         {msg.contextType && msg.contextData && showContent ? (
-          <div className={cn("mb-3 rounded-2xl border px-3 py-2 text-xs font-medium", isMe ? "border-white/20 bg-white/10 text-white/90" : "border-[color:var(--border-1)] bg-[color:rgba(220,232,246,0.78)] text-[color:var(--text-2)]")}>
+          <div className={cn("mb-3 rounded-2xl border px-3 py-2 text-xs font-medium", isMe ? "border-white/20 bg-white/10 text-[color:var(--message-me-text)] opacity-90" : "border-[color:var(--border-1)] bg-[color:var(--surface-3)] text-[color:var(--text-2)]")}>
             [{msg.contextType}: {msg.contextData}]
           </div>
         ) : null}
@@ -150,7 +150,7 @@ export function MessageBubble({
               rel="noreferrer"
               className={cn(
                 "mt-3 inline-flex items-center gap-2 rounded-2xl border px-3 py-2 text-sm font-medium",
-                isMe ? "border-white/20 bg-white/10 text-white" : "border-[color:var(--border-1)] bg-[color:rgba(220,232,246,0.78)] text-[color:var(--text-2)]"
+                isMe ? "border-white/20 bg-white/10 text-[color:var(--message-me-text)]" : "border-[color:var(--border-1)] bg-[color:var(--surface-3)] text-[color:var(--text-2)]"
               )}
               download={autoDownloadFiles ? msg.fileName ?? true : undefined}
               ref={autoDownloadFiles ? autoDownloadRef : undefined}
@@ -163,7 +163,7 @@ export function MessageBubble({
 
         {isMe && !isDeleted ? (
           <div className="mt-3 flex justify-end">
-            <Button variant="ghost" size="sm" onClick={() => onDelete?.(msg._id)} className="text-white hover:bg-white/12 hover:text-white">
+            <Button variant="ghost" size="sm" onClick={() => onDelete?.(msg._id)} className="text-[color:var(--message-me-text)] hover:bg-white/12 hover:text-[color:var(--message-me-text)]">
               <Trash2 className="h-4 w-4" aria-hidden="true" />
               Delete
             </Button>
@@ -175,3 +175,5 @@ export function MessageBubble({
     </motion.div>
   );
 }
+
+export const MessageBubble = React.memo(MessageBubbleBase);

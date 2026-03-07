@@ -47,7 +47,7 @@ export const listUsersWithProfiles = query({
       sliced.map(async (u) => {
         const profilePictureUrl = u.profilePictureStorageId
           ? await ctx.storage.getUrl(u.profilePictureStorageId)
-          : null;
+          : (u.externalAvatarUrl ?? null);
         return { name: u.name, profilePictureUrl };
       })
     );
@@ -70,7 +70,7 @@ export const getUserProfile = query({
 
     const profilePictureUrl = user.profilePictureStorageId
       ? await ctx.storage.getUrl(user.profilePictureStorageId)
-      : null;
+      : (user.externalAvatarUrl ?? null);
 
     return { name: user.name, profilePictureUrl };
   },
@@ -83,7 +83,7 @@ export const getMe = query({
 
     const profilePictureUrl = user.profilePictureStorageId
       ? await ctx.storage.getUrl(user.profilePictureStorageId)
-      : null;
+      : (user.externalAvatarUrl ?? null);
 
     return { name: user.name, profilePictureUrl };
   },
@@ -207,6 +207,7 @@ export const setMyProfilePicture = mutation({
 
     await ctx.db.patch(user._id, {
       profilePictureStorageId: args.storageId,
+      externalAvatarUrl: undefined,
       updatedAt: Date.now(),
     });
   },

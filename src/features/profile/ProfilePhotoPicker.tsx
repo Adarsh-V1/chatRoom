@@ -39,7 +39,7 @@ export function ProfilePhotoPicker({ nameForFallback, file, onFileChange }: Prop
         }}
       />
 
-      <Card className="mt-6 rounded-[24px] border-[color:var(--border-1)] bg-[color:rgba(216,228,243,0.82)] p-4 shadow-none">
+      <Card className="mt-6 rounded-[24px] border-[color:var(--border-1)] bg-[color:var(--surface-4)] p-4 shadow-none">
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex min-w-0 items-center gap-3">
             <Avatar name={nameForFallback} url={previewUrl} size="lg" />

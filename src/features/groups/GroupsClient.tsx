@@ -4,6 +4,7 @@ import { useMemo, useState } from "react";
 import { useMutation, useQuery } from "convex/react";
 import { ArrowLeft, Plus, UsersRound } from "lucide-react";
 import { useRouter } from "next/navigation";
+import { toast } from "sonner";
 import { api } from "@/convex/_generated/api";
 import type { Id } from "@/convex/_generated/dataModel";
 import { LoadingScreen, PageContainer, PageHeader, PageShell } from "@/src/components/app/page-shell";
@@ -64,6 +65,7 @@ export function GroupsClient() {
             <LoginCard
               title="Join groups"
               subtitle="Sign in once to create private rooms, accept invites, and browse public channels."
+              onGoogleSubmit={auth.loginWithGoogle}
               onSubmit={async ({ name: loginName, password, profileFile }) => {
                 const result = await auth.login({ name: loginName, password });
 
@@ -134,9 +136,12 @@ export function GroupsClient() {
                     setSlug("");
                     setSlugTouched(false);
                     setDescription("");
+                    toast.success("Group created");
                     router.push(`/groups/${result.slug}`);
                   } catch (err) {
-                    setError(err instanceof Error ? err.message : "Failed to create group");
+                    const message = err instanceof Error ? err.message : "Failed to create group";
+                    setError(message);
+                    toast.error(message);
                   } finally {
                     setBusy(false);
                   }
@@ -175,7 +180,7 @@ export function GroupsClient() {
                     placeholder="What this group is for"
                   />
                 </label>
-                <div className="md:col-span-2 flex flex-col gap-4 rounded-[24px] border border-[color:var(--border-1)] bg-[color:rgba(216,228,243,0.82)] p-4 sm:flex-row sm:items-center sm:justify-between">
+                <div className="md:col-span-2 flex flex-col gap-4 rounded-[24px] border border-[color:var(--border-1)] bg-[color:var(--surface-4)] p-4 sm:flex-row sm:items-center sm:justify-between">
                   <div>
                     <div className="text-sm font-medium text-[color:var(--text-1)]">Public group</div>
                     <div className="text-sm text-[color:var(--text-3)]">Anyone can join when enabled. Turn off to require an invite.</div>
@@ -204,7 +209,7 @@ export function GroupsClient() {
                 </CardHeader>
                 <CardContent className="space-y-3">
                   {invites.filter((invite): invite is NonNullable<typeof invite> => Boolean(invite)).map((invite) => (
-                    <div key={invite._id} className="flex flex-col gap-3 rounded-[24px] border border-[color:var(--border-1)] bg-[color:rgba(216,228,243,0.82)] p-4 sm:flex-row sm:items-center sm:justify-between">
+                    <div key={invite._id} className="flex flex-col gap-3 rounded-[24px] border border-[color:var(--border-1)] bg-[color:var(--surface-4)] p-4 sm:flex-row sm:items-center sm:justify-between">
                       <div>
                         <div className="text-sm font-semibold text-[color:var(--text-1)]">{invite.groupName}</div>
                         <div className="text-sm text-[color:var(--text-3)]">/{invite.groupSlug}</div>
@@ -212,8 +217,13 @@ export function GroupsClient() {
                       <Button
                         variant="secondary"
                         onClick={async () => {
-                          await joinGroup({ token, groupId: invite.groupId });
-                          router.push(`/groups/${invite.groupSlug}`);
+                          try {
+                            await joinGroup({ token, groupId: invite.groupId });
+                            toast.success(`Joined ${invite.groupName}`);
+                            router.push(`/groups/${invite.groupSlug}`);
+                          } catch (err) {
+                            toast.error(err instanceof Error ? err.message : "Failed to join group");
+                          }
                         }}
                       >
                         Accept invite
@@ -231,15 +241,15 @@ export function GroupsClient() {
                 <CardDescription>Track what you own, joined, and can discover.</CardDescription>
               </CardHeader>
               <CardContent className="grid gap-3 sm:grid-cols-3 xl:grid-cols-1">
-                <div className="rounded-[24px] border border-[color:var(--border-1)] bg-[color:rgba(216,228,243,0.86)] p-4">
+                <div className="rounded-[24px] border border-[color:var(--border-1)] bg-[color:var(--surface-4)] p-4">
                   <div className="text-xs font-semibold uppercase tracking-[0.2em] text-[color:var(--accent-text)]">My groups</div>
                   <div className="mt-2 text-3xl font-semibold text-[color:var(--text-1)]">{myGroups?.length ?? 0}</div>
                 </div>
-                <div className="rounded-[24px] border border-[color:var(--border-1)] bg-[color:rgba(216,228,243,0.86)] p-4">
+                <div className="rounded-[24px] border border-[color:var(--border-1)] bg-[color:var(--surface-4)] p-4">
                   <div className="text-xs font-semibold uppercase tracking-[0.2em] text-[color:var(--accent-text)]">Public rooms</div>
                   <div className="mt-2 text-3xl font-semibold text-[color:var(--text-1)]">{availablePublicGroups.length}</div>
                 </div>
-                <div className="rounded-[24px] border border-[color:var(--border-1)] bg-[color:rgba(216,228,243,0.86)] p-4">
+                <div className="rounded-[24px] border border-[color:var(--border-1)] bg-[color:var(--surface-4)] p-4">
                   <div className="text-xs font-semibold uppercase tracking-[0.2em] text-[color:var(--accent-text)]">Pending invites</div>
                   <div className="mt-2 text-3xl font-semibold text-[color:var(--text-1)]">{invites?.length ?? 0}</div>
                 </div>
@@ -262,7 +272,7 @@ export function GroupsClient() {
                     key={group._id}
                     type="button"
                     onClick={() => router.push(`/groups/${group.slug}`)}
-                    className="flex w-full items-center justify-between rounded-[24px] border border-[color:var(--border-1)] bg-[color:rgba(237,243,251,0.84)] px-4 py-4 text-left shadow-sm transition hover:border-[color:var(--border-2)] hover:bg-[color:rgba(244,248,253,0.96)]"
+                    className="flex w-full items-center justify-between rounded-[24px] border border-[color:var(--border-1)] bg-[color:var(--surface-2)] px-4 py-4 text-left shadow-sm transition hover:border-[color:var(--border-2)] hover:bg-[color:var(--surface-1)]"
                   >
                     <div>
                       <div className="text-sm font-semibold text-[color:var(--text-1)]">{group.name}</div>
@@ -272,7 +282,7 @@ export function GroupsClient() {
                   </button>
                 ))
               ) : (
-                <div className="rounded-[24px] border border-dashed border-[color:var(--border-1)] bg-[color:rgba(236,243,251,0.74)] px-4 py-6 text-sm text-[color:var(--text-3)]">No groups yet. Create one to get started.</div>
+                <div className="rounded-[24px] border border-dashed border-[color:var(--border-1)] bg-[color:var(--muted-surface)] px-4 py-6 text-sm text-[color:var(--text-3)]">No groups yet. Create one to get started.</div>
               )}
             </CardContent>
           </Card>
@@ -286,7 +296,7 @@ export function GroupsClient() {
             <CardContent className="space-y-3">
               {availablePublicGroups.length > 0 ? (
                 availablePublicGroups.map((group) => (
-                  <div key={group._id} className="flex flex-col gap-3 rounded-[24px] border border-[color:var(--border-1)] bg-[color:rgba(237,243,251,0.84)] px-4 py-4 shadow-sm sm:flex-row sm:items-center sm:justify-between">
+                  <div key={group._id} className="flex flex-col gap-3 rounded-[24px] border border-[color:var(--border-1)] bg-[color:var(--surface-2)] px-4 py-4 shadow-sm sm:flex-row sm:items-center sm:justify-between">
                     <div>
                       <div className="text-sm font-semibold text-[color:var(--text-1)]">{group.name}</div>
                       <div className="mt-1 text-sm text-[color:var(--text-3)]">/{group.slug}</div>
@@ -294,8 +304,13 @@ export function GroupsClient() {
                     <Button
                       variant="secondary"
                       onClick={async () => {
-                        await joinGroup({ token, groupId: group._id });
-                        router.push(`/groups/${group.slug}`);
+                        try {
+                          await joinGroup({ token, groupId: group._id });
+                          toast.success(`Joined ${group.name}`);
+                          router.push(`/groups/${group.slug}`);
+                        } catch (err) {
+                          toast.error(err instanceof Error ? err.message : "Failed to join group");
+                        }
                       }}
                     >
                       <UsersRound className="h-4 w-4" aria-hidden="true" />
@@ -304,7 +319,7 @@ export function GroupsClient() {
                   </div>
                 ))
               ) : (
-                <div className="rounded-[24px] border border-dashed border-[color:var(--border-1)] bg-[color:rgba(236,243,251,0.74)] px-4 py-6 text-sm text-[color:var(--text-3)]">No public groups are available right now.</div>
+                <div className="rounded-[24px] border border-dashed border-[color:var(--border-1)] bg-[color:var(--muted-surface)] px-4 py-6 text-sm text-[color:var(--text-3)]">No public groups are available right now.</div>
               )}
             </CardContent>
           </Card>

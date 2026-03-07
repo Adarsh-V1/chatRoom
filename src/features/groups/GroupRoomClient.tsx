@@ -57,6 +57,7 @@ export function GroupRoomClient({ slug }: Props) {
             <LoginCard
               title="Join group"
               subtitle="Sign in to access group chat, media, and membership actions."
+              onGoogleSubmit={auth.loginWithGoogle}
               onSubmit={async ({ name: loginName, password, profileFile }) => {
               const result = await auth.login({ name: loginName, password });
 
@@ -117,8 +118,8 @@ export function GroupRoomClient({ slug }: Props) {
   }
 
   return (
-    <PageShell className="flex flex-col overflow-hidden">
-      <PageContainer className="flex min-h-0 flex-1 flex-col">
+    <PageShell className="flex h-[calc(100dvh-var(--app-header-height))] min-h-0 flex-col overflow-hidden">
+      <PageContainer className="flex min-h-0 flex-1 flex-col overflow-hidden">
         <PageHeader
           eyebrow="Group room"
           title={group.name}
@@ -177,7 +178,7 @@ export function GroupRoomClient({ slug }: Props) {
               <CardContent className="space-y-3">
                 {members && members.length > 0 ? (
                   members.map((member) => (
-                    <div key={member.userId} className="flex items-center justify-between rounded-[24px] border border-[color:var(--border-1)] bg-[color:rgba(216,228,243,0.82)] px-4 py-3">
+                    <div key={member.userId} className="flex items-center justify-between rounded-[24px] border border-[color:var(--border-1)] bg-[color:var(--surface-4)] px-4 py-3">
                       <div className="min-w-0">
                         <div className="truncate text-sm font-semibold text-[color:var(--text-1)]">{member.name}</div>
                         <div className="text-sm text-[color:var(--text-3)]">{member.role}</div>
@@ -186,7 +187,7 @@ export function GroupRoomClient({ slug }: Props) {
                     </div>
                   ))
                 ) : (
-                  <div className="rounded-[24px] border border-dashed border-[color:var(--border-1)] bg-[color:rgba(236,243,251,0.74)] px-4 py-6 text-sm text-[color:var(--text-3)]">No members yet.</div>
+                  <div className="rounded-[24px] border border-dashed border-[color:var(--border-1)] bg-[color:var(--muted-surface)] px-4 py-6 text-sm text-[color:var(--text-3)]">No members yet.</div>
                 )}
               </CardContent>
             </Card>
@@ -221,7 +222,7 @@ export function GroupRoomClient({ slug }: Props) {
                     Send invite
                   </Button>
                   {inviteStatus ? (
-                    <div className="rounded-2xl border border-[color:var(--border-1)] bg-[color:rgba(216,228,243,0.82)] px-4 py-3 text-sm text-[color:var(--text-2)]">{inviteStatus}</div>
+                    <div className="rounded-2xl border border-[color:var(--border-1)] bg-[color:var(--surface-4)] px-4 py-3 text-sm text-[color:var(--text-2)]">{inviteStatus}</div>
                   ) : null}
                 </CardContent>
               </Card>

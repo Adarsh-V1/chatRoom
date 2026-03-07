@@ -5,6 +5,8 @@ import { motion } from "framer-motion";
 import { Activity, BarChart3, CalendarDays, ChartNoAxesCombined, Layers3, Sparkles } from "lucide-react";
 import { Badge } from "@/src/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/src/components/ui/card";
+import { Skeleton } from "@/src/components/ui/skeleton";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/src/components/ui/tooltip";
 
 type DashboardStats = {
   kpis: {
@@ -61,7 +63,7 @@ function AreaChart({ data }: { data: Array<{ label: string; count: number }> }) 
   }, [data]);
 
   return (
-    <div className="w-full overflow-hidden rounded-[24px] border border-[color:var(--border-1)] bg-[color:rgba(237,243,251,0.82)] p-3">
+    <div className="w-full overflow-hidden rounded-[24px] border border-[color:var(--border-1)] bg-[color:var(--surface-2)] p-3">
       <svg viewBox="0 0 560 220" className="h-52 w-full" role="img" aria-label="Weekly activity chart">
         <defs>
           <linearGradient id="profile-area-gradient" x1="0" y1="0" x2="0" y2="1">
@@ -76,13 +78,13 @@ function AreaChart({ data }: { data: Array<{ label: string; count: number }> }) 
         {points.map((point) => (
           <g key={`${point.label}-${point.x}`}>
             <circle cx={point.x} cy={point.y} r="4.5" fill="rgba(14,165,233,0.94)" />
-            <text x={point.x} y={205} textAnchor="middle" className="fill-slate-500 text-[11px] font-semibold">
+            <text x={point.x} y={205} textAnchor="middle" className="fill-[color:var(--text-3)] text-[11px] font-semibold">
               {point.label}
             </text>
           </g>
         ))}
 
-        <text x="24" y="20" className="fill-slate-500 text-[11px] font-semibold uppercase tracking-[0.2em]">
+        <text x="24" y="20" className="fill-[color:var(--text-3)] text-[11px] font-semibold uppercase tracking-[0.2em]">
           Peak {maxValue}
         </text>
       </svg>
@@ -95,7 +97,7 @@ function RoomBars({ data }: { data: Array<{ label: string; count: number }> }) {
 
   if (data.length === 0) {
     return (
-      <div className="rounded-[24px] border border-dashed border-[color:var(--border-1)] bg-[color:rgba(236,243,251,0.72)] px-4 py-6 text-sm text-[color:var(--text-3)]">
+      <div className="rounded-[24px] border border-dashed border-[color:var(--border-1)] bg-[color:var(--muted-surface)] px-4 py-6 text-sm text-[color:var(--text-3)]">
         No room activity yet.
       </div>
     );
@@ -111,13 +113,13 @@ function RoomBars({ data }: { data: Array<{ label: string; count: number }> }) {
               <div className="truncate font-semibold text-[color:var(--text-2)]">{item.label}</div>
               <div className="shrink-0 text-xs font-medium text-[color:var(--text-3)]">{item.count}</div>
             </div>
-            <div className="h-2.5 rounded-full bg-cyan-100/70">
+            <div className="h-2.5 rounded-full bg-[color:var(--surface-4)]">
               <motion.div
                 initial={{ width: 0 }}
                 whileInView={{ width: `${width}%` }}
                 viewport={{ once: true, amount: 0.35 }}
                 transition={{ duration: 0.48, ease: [0.2, 0.8, 0.2, 1] }}
-                className="h-full rounded-full bg-linear-to-r from-cyan-500 to-sky-500"
+                className="h-full rounded-full bg-linear-to-r from-[color:var(--brand-1)] to-[color:var(--brand-2)]"
               />
             </div>
           </div>
@@ -128,6 +130,7 @@ function RoomBars({ data }: { data: Array<{ label: string; count: number }> }) {
 }
 
 export function ProfileDashboard({ name, stats }: Props) {
+  const isLoading = stats === undefined;
   const kpis = [
     {
       label: "Messages (7d)",
@@ -156,14 +159,15 @@ export function ProfileDashboard({ name, stats }: Props) {
   ];
 
   return (
-    <motion.section
-      initial={{ opacity: 0, y: 18 }}
-      whileInView={{ opacity: 1, y: 0 }}
-      viewport={{ once: true, amount: 0.2 }}
-      transition={{ duration: 0.44, ease: [0.2, 0.9, 0.2, 1] }}
-      className="mb-4 space-y-4"
-    >
-      <Card>
+    <TooltipProvider delayDuration={140}>
+      <motion.section
+        initial={{ opacity: 0, y: 18 }}
+        whileInView={{ opacity: 1, y: 0 }}
+        viewport={{ once: true, amount: 0.2 }}
+        transition={{ duration: 0.44, ease: [0.2, 0.9, 0.2, 1] }}
+        className="mb-4 space-y-4"
+      >
+        <Card className="overflow-hidden">
         <CardHeader className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
           <div>
             <Badge variant="secondary">Profile dashboard</Badge>
@@ -173,8 +177,12 @@ export function ProfileDashboard({ name, stats }: Props) {
             </CardDescription>
           </div>
           <div className="flex flex-wrap items-center gap-2">
-            <Badge variant="outline">Score: {stats?.activityScore ?? 0}/100</Badge>
-            <Badge variant="outline">Sampled: {stats?.sampledMessages ?? 0} msgs</Badge>
+            <Badge variant="outline">
+              Score: {isLoading ? "..." : `${stats?.activityScore ?? 0}/100`}
+            </Badge>
+            <Badge variant="outline">
+              Sampled: {isLoading ? "..." : `${stats?.sampledMessages ?? 0} msgs`}
+            </Badge>
           </div>
         </CardHeader>
         <CardContent className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
@@ -187,18 +195,35 @@ export function ProfileDashboard({ name, stats }: Props) {
                 whileInView={{ opacity: 1, y: 0 }}
                 viewport={{ once: true, amount: 0.2 }}
                 transition={{ duration: 0.32, delay: index * 0.05 }}
-                className="rounded-[24px] border border-[color:var(--border-1)] bg-[color:rgba(216,228,243,0.82)] p-4"
+                whileHover={{ y: -4, scale: 1.01 }}
+                className="rounded-[24px] border border-[color:var(--border-1)] bg-[color:var(--surface-4)] p-4"
               >
                 <div className="flex items-center justify-between gap-2">
                   <div className="text-xs font-semibold uppercase tracking-[0.18em] text-[color:var(--accent-text)]">
                     {item.label}
                   </div>
-                  <Icon className="h-4 w-4 text-cyan-700" aria-hidden="true" />
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <button type="button" className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-[color:var(--border-1)] bg-[color:var(--surface-2)] text-[color:var(--accent-text)]">
+                        <Icon className="h-4 w-4" aria-hidden="true" />
+                      </button>
+                    </TooltipTrigger>
+                    <TooltipContent>{item.hint}</TooltipContent>
+                  </Tooltip>
                 </div>
-                <div className="mt-3 text-3xl font-semibold tracking-tight text-[color:var(--text-1)]">
-                  {item.value}
-                </div>
-                <div className="mt-1 text-xs text-[color:var(--text-3)]">{item.hint}</div>
+                {isLoading ? (
+                  <div className="mt-3 space-y-2">
+                    <Skeleton className="h-8 w-20 rounded-full" />
+                    <Skeleton className="h-3 w-28 rounded-full" />
+                  </div>
+                ) : (
+                  <>
+                    <div className="mt-3 text-3xl font-semibold tracking-tight text-[color:var(--text-1)]">
+                      {item.value}
+                    </div>
+                    <div className="mt-1 text-xs text-[color:var(--text-3)]">{item.hint}</div>
+                  </>
+                )}
               </motion.div>
             );
           })}
@@ -206,25 +231,25 @@ export function ProfileDashboard({ name, stats }: Props) {
       </Card>
 
       <div className="grid gap-4 xl:grid-cols-[1.3fr_0.7fr]">
-        <Card>
+        <Card className="overflow-hidden">
           <CardHeader>
             <Badge variant="outline">Weekly trend</Badge>
             <CardTitle className="flex items-center gap-2">
-              <Sparkles className="h-4 w-4 text-cyan-700" aria-hidden="true" />
+              <Sparkles className="h-4 w-4 text-[color:var(--accent-text)]" aria-hidden="true" />
               Message activity over the last 7 days
             </CardTitle>
             <CardDescription>Scroll-safe animations with a pure SVG area chart (no extra chart dependency).</CardDescription>
           </CardHeader>
           <CardContent>
-            <AreaChart data={stats?.weeklyVolume ?? []} />
+            {isLoading ? <Skeleton className="h-64 w-full rounded-[24px]" /> : <AreaChart data={stats?.weeklyVolume ?? []} />}
           </CardContent>
         </Card>
 
-        <Card>
+        <Card className="overflow-hidden">
           <CardHeader>
             <Badge variant="outline">Top rooms</Badge>
             <CardTitle className="flex items-center gap-2">
-              <BarChart3 className="h-4 w-4 text-cyan-700" aria-hidden="true" />
+              <BarChart3 className="h-4 w-4 text-[color:var(--accent-text)]" aria-hidden="true" />
               Where you contribute most
             </CardTitle>
             <CardDescription>
@@ -232,10 +257,25 @@ export function ProfileDashboard({ name, stats }: Props) {
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <RoomBars data={stats?.topRooms ?? []} />
+            {isLoading ? (
+              <div className="space-y-3">
+                {Array.from({ length: 4 }).map((_, index) => (
+                  <div key={index} className="space-y-2">
+                    <div className="flex items-center justify-between gap-3">
+                      <Skeleton className="h-3 w-24 rounded-full" />
+                      <Skeleton className="h-3 w-8 rounded-full" />
+                    </div>
+                    <Skeleton className="h-2.5 w-full rounded-full" />
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <RoomBars data={stats?.topRooms ?? []} />
+            )}
           </CardContent>
         </Card>
       </div>
-    </motion.section>
+      </motion.section>
+    </TooltipProvider>
   );
 }

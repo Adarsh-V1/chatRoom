@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { motion } from "framer-motion";
+import { toast } from "sonner";
 import { Button } from "@/src/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/src/components/ui/card";
 import { Input } from "@/src/components/ui/input";
@@ -55,9 +56,11 @@ export function LoginForm({ title, subtitle, onSubmit }: Props) {
                   password: password.trim(),
                   avatarFile,
                 });
+                toast.success(`Welcome to ConvoLink, ${name.trim()}`);
               } catch (err) {
                 const message = err instanceof Error ? err.message : "Login failed";
                 setError(message);
+                toast.error(message);
               } finally {
                 setIsSubmitting(false);
               }

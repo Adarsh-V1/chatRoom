@@ -1,12 +1,14 @@
 "use client";
 
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { AnimatePresence } from "framer-motion";
 import { useMutation, usePaginatedQuery, useQuery } from "convex/react";
 import { BellRing } from "lucide-react";
+import { toast } from "sonner";
 import { api } from "@/convex/_generated/api";
 import type { Id } from "@/convex/_generated/dataModel";
 import { Badge } from "@/src/components/ui/badge";
+import { Skeleton } from "@/src/components/ui/skeleton";
 import { MessageBubble, type ChatMessage } from "@/src/features/chat/MessageBubble";
 import { AwaySummaryCard } from "@/src/features/awaySummary/AwaySummaryCard";
 
@@ -16,6 +18,32 @@ interface ChatFeedProps {
   token: string;
 }
 
+function ChatFeedSkeleton() {
+  return (
+    <div className="flex flex-col gap-3">
+      {Array.from({ length: 5 }).map((_, index) => {
+        const isMe = index % 2 === 1;
+        return (
+          <div key={index} className={`flex items-end gap-3 ${isMe ? "justify-end" : "justify-start"}`}>
+            {!isMe ? <Skeleton className="h-10 w-10 rounded-[16px]" /> : null}
+            <div className="max-w-[min(82%,44rem)] rounded-[24px] border border-[color:var(--border-1)] bg-[color:var(--message-other-bg)] px-4 py-3">
+              <div className="mb-3 flex items-center justify-between gap-3">
+                <Skeleton className="h-3 w-24 rounded-full" />
+                <Skeleton className="h-3 w-14 rounded-full" />
+              </div>
+              <div className="space-y-2">
+                <Skeleton className="h-3 w-52 rounded-full" />
+                <Skeleton className="h-3 w-44 rounded-full" />
+              </div>
+            </div>
+            {isMe ? <Skeleton className="h-10 w-10 rounded-[16px]" /> : null}
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
 const ChatFeed = ({ currentUser, room, token }: ChatFeedProps) => {
   const { results: pagedFeed, status: pageStatus, isLoading: isFeedLoading, loadMore } = usePaginatedQuery(
     api.chats.getChatsPage,
@@ -23,7 +51,6 @@ const ChatFeed = ({ currentUser, room, token }: ChatFeedProps) => {
     { initialNumItems: 70 }
   );
   const feed = useMemo(() => [...pagedFeed].reverse(), [pagedFeed]);
-  const bottomRef = useRef<HTMLDivElement | null>(null);
   const scrollRef = useRef<HTMLDivElement | null>(null);
 
   const settings = useQuery(api.settings.getMySettings, token ? { token } : "skip");
@@ -39,9 +66,9 @@ const ChatFeed = ({ currentUser, room, token }: ChatFeedProps) => {
   const [isSummarizing, setIsSummarizing] = useState(false);
   const [stickToBottom, setStickToBottom] = useState(true);
   const [revealedIds, setRevealedIds] = useState<Set<string>>(() => new Set());
-  const [toast, setToast] = useState<string | null>(null);
-  const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const lastCountRef = useRef<number>(0);
+  const previousFeedLengthRef = useRef(0);
+  const previousRoomRef = useRef(room);
   const lastNotifiedIdRef = useRef<string | null>(null);
   const soundPlayedRef = useRef(0);
 
@@ -51,7 +78,6 @@ const ChatFeed = ({ currentUser, room, token }: ChatFeedProps) => {
   const readReceipts = settings?.readReceipts ?? true;
   const typingIndicator = settings?.typingIndicator ?? true;
   const notificationSound = settings?.notificationSound ?? true;
-  const desktopNotifications = settings?.desktopNotifications ?? false;
   const autoPlayGifs = settings?.autoPlayGifs ?? true;
   const autoDownloadFiles = settings?.autoDownloadFiles ?? false;
 
@@ -75,9 +101,27 @@ const ChatFeed = ({ currentUser, room, token }: ChatFeedProps) => {
   }, [feed, mutedSet]);
 
   useEffect(() => {
-    if (!stickToBottom) return;
-    bottomRef.current?.scrollIntoView({ behavior: reducedMotion ? "auto" : "smooth", block: "end" });
-  }, [feed.length, room, stickToBottom, reducedMotion]);
+    const container = scrollRef.current;
+    const currentLength = filteredFeed?.length ?? 0;
+    const roomChanged = previousRoomRef.current !== room;
+    const shouldSnap = reducedMotion || roomChanged || previousFeedLengthRef.current === 0;
+
+    if (container && currentLength > 0 && stickToBottom) {
+      const frame = window.requestAnimationFrame(() => {
+        container.scrollTo({
+          top: container.scrollHeight,
+          behavior: shouldSnap ? "auto" : "smooth",
+        });
+      });
+
+      previousFeedLengthRef.current = currentLength;
+      previousRoomRef.current = room;
+      return () => window.cancelAnimationFrame(frame);
+    }
+
+    previousFeedLengthRef.current = currentLength;
+    previousRoomRef.current = room;
+  }, [filteredFeed?.length, room, stickToBottom, reducedMotion]);
 
   useEffect(() => {
     const container = scrollRef.current;
@@ -99,12 +143,6 @@ const ChatFeed = ({ currentUser, room, token }: ChatFeedProps) => {
     setRevealedIds(new Set());
     setStickToBottom(true);
   }, [room]);
-
-  useEffect(() => {
-    return () => {
-      if (toastTimer.current) clearTimeout(toastTimer.current);
-    };
-  }, []);
 
   useEffect(() => {
     const count = filteredFeed?.length ?? 0;
@@ -151,29 +189,39 @@ const ChatFeed = ({ currentUser, room, token }: ChatFeedProps) => {
       }
     }
 
-    if (
-      desktopNotifications &&
-      typeof Notification !== "undefined" &&
-      Notification.permission === "granted" &&
-      document.hidden &&
-      last._id &&
-      lastNotifiedIdRef.current !== last._id
-    ) {
+    if (document.hidden && last._id && lastNotifiedIdRef.current !== last._id) {
       lastNotifiedIdRef.current = last._id;
-      try {
-        new Notification("New message", {
-          body: last.message ? `${last.username ?? "Someone"}: ${last.message}` : "New message",
-        });
-      } catch {
-        // Ignore notification errors.
-      }
     }
 
-    setToast(last.message ? `${last.username ?? "Someone"}: ${last.message}` : "New message");
-    if (toastTimer.current) clearTimeout(toastTimer.current);
-    toastTimer.current = setTimeout(() => setToast(null), 2800);
+    const summaryText = last.message ? `${last.username ?? "Someone"}: ${last.message}` : "New message";
+    toast.message(summaryText, {
+      id: "new-message-toast",
+      duration: 2800,
+      icon: <BellRing className="h-4 w-4" aria-hidden="true" />,
+    });
     lastCountRef.current = count;
-  }, [filteredFeed, currentUser, desktopNotifications, notificationSound]);
+  }, [filteredFeed, currentUser, notificationSound]);
+
+  const handleReveal = useCallback((id: string) => {
+    setRevealedIds((prev) => {
+      const next = new Set(prev);
+      next.add(id);
+      return next;
+    });
+  }, []);
+
+  const handleDelete = useCallback(
+    async (id: string) => {
+      if (!token) return;
+      try {
+        await softDeleteChat({ token, chatId: id as Id<"chats"> });
+        toast.success("Message deleted");
+      } catch (err) {
+        toast.error(err instanceof Error ? err.message : "Failed to delete message");
+      }
+    },
+    [token, softDeleteChat]
+  );
 
   useEffect(() => {
     if (!filteredFeed || filteredFeed.length === 0) return;
@@ -230,7 +278,7 @@ const ChatFeed = ({ currentUser, room, token }: ChatFeedProps) => {
 
       <div
         ref={scrollRef}
-        className="min-h-0 flex-1 overflow-y-auto rounded-[30px] border border-[color:var(--border-1)] bg-[color:rgba(233,241,251,0.72)] p-3 shadow-inner shadow-cyan-950/6 backdrop-blur-sm sm:p-4"
+        className="app-scroll min-h-0 flex-1 overflow-y-auto rounded-[30px] border border-[color:var(--border-1)] bg-[color:var(--surface-2)] p-3 shadow-inner shadow-cyan-950/6 backdrop-blur-sm sm:p-4"
       >
         {pageStatus === "CanLoadMore" || pageStatus === "LoadingMore" ? (
           <div className="mb-3 flex justify-center">
@@ -245,14 +293,9 @@ const ChatFeed = ({ currentUser, room, token }: ChatFeedProps) => {
           </div>
         ) : null}
 
-        {toast ? (
-          <div className="sticky top-2 z-10 mx-auto mb-3 flex w-full max-w-lg items-center gap-2 rounded-full border border-cyan-300/70 bg-[color:rgba(244,248,253,0.96)] px-4 py-2 text-sm text-[color:var(--text-2)] shadow-[0_12px_28px_-20px_rgba(15,23,42,0.28)]">
-            <BellRing className="h-4 w-4 text-cyan-700" aria-hidden="true" />
-            <span className="truncate">{toast}</span>
-          </div>
-        ) : null}
-
-        {filteredFeed && filteredFeed.length > 0 ? (
+        {isFeedLoading && (!filteredFeed || filteredFeed.length === 0) ? (
+          <ChatFeedSkeleton />
+        ) : filteredFeed && filteredFeed.length > 0 ? (
           <div className={messageDensity === "compact" ? "flex flex-col gap-2" : "flex flex-col gap-3"}>
             <AnimatePresence initial={false}>
               {filteredFeed.map((chat) => {
@@ -269,16 +312,9 @@ const ChatFeed = ({ currentUser, room, token }: ChatFeedProps) => {
                     autoPlayGifs={autoPlayGifs}
                     autoDownloadFiles={autoDownloadFiles}
                     isRevealed={revealedIds.has(msg._id)}
-                    onReveal={(id) => {
-                      setRevealedIds((prev) => {
-                        const next = new Set(prev);
-                        next.add(id);
-                        return next;
-                      });
-                    }}
+                    onReveal={handleReveal}
                     onDelete={(id) => {
-                      if (!token) return;
-                      void softDeleteChat({ token, chatId: id as Id<"chats"> });
+                      void handleDelete(id);
                     }}
                   />
                 );
@@ -294,10 +330,9 @@ const ChatFeed = ({ currentUser, room, token }: ChatFeedProps) => {
                 </Badge>
               </div>
             ) : null}
-            <div ref={bottomRef} />
           </div>
         ) : (
-          <div className="flex h-full flex-col items-center justify-center gap-3 rounded-[26px] border border-dashed border-[color:var(--border-1)] bg-[color:rgba(236,243,251,0.74)] px-6 py-10 text-center text-sm text-[color:var(--text-3)]">
+          <div className="flex h-full flex-col items-center justify-center gap-3 rounded-[26px] border border-dashed border-[color:var(--border-1)] bg-[color:var(--muted-surface)] px-6 py-10 text-center text-sm text-[color:var(--text-3)]">
             <div className="text-base font-medium text-[color:var(--text-2)]">
               {isFeedLoading ? "Loading messages..." : "No messages yet"}
             </div>

@@ -3,10 +3,13 @@
 import React, { useMemo, useState } from "react";
 import { motion } from "framer-motion";
 import { LockKeyhole, UserRound } from "lucide-react";
+import { toast } from "sonner";
 import { Badge } from "@/src/components/ui/badge";
+import { BrandLogo } from "@/src/components/app/brand-logo";
 import { Button } from "@/src/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/src/components/ui/card";
 import { Input } from "@/src/components/ui/input";
+import { GoogleSignInButton } from "@/src/features/auth/GoogleSignInButton";
 import { ProfilePhotoPicker } from "@/src/features/profile/ProfilePhotoPicker";
 
 type SubmitArgs = {
@@ -19,9 +22,10 @@ type Props = {
   title: string;
   subtitle?: string;
   onSubmit: (args: SubmitArgs) => Promise<void>;
+  onGoogleSubmit?: (credential: string) => Promise<{ name?: string } | void>;
 };
 
-export function LoginCard({ title, subtitle, onSubmit }: Props) {
+export function LoginCard({ title, subtitle, onSubmit, onGoogleSubmit }: Props) {
   const [name, setName] = useState("");
   const [password, setPassword] = useState("");
   const [profileFile, setProfileFile] = useState<File | null>(null);
@@ -40,12 +44,13 @@ export function LoginCard({ title, subtitle, onSubmit }: Props) {
         <CardHeader className="border-b border-[color:var(--border-1)] bg-linear-to-r from-[rgba(224,235,248,0.96)] via-[rgba(231,242,251,0.92)] to-[rgba(248,233,197,0.84)]">
           <div className="flex items-start justify-between gap-4">
             <div>
+              <BrandLogo size="sm" tagline="Secure chat" className="mb-3" />
               <Badge variant="secondary" className="mb-3">Secure entry</Badge>
               <CardTitle className="text-2xl">{title}</CardTitle>
               {subtitle ? <CardDescription className="mt-2 max-w-md">{subtitle}</CardDescription> : null}
             </div>
-            <div className="hidden rounded-2xl border border-cyan-300/60 bg-cyan-100/70 px-3 py-2 text-xs font-medium text-cyan-900 sm:block">
-              Modern light
+            <div className="hidden rounded-2xl border border-emerald-300/55 bg-emerald-50/78 px-3 py-2 text-xs font-medium text-emerald-900 sm:block">
+              ConvoLink
             </div>
           </div>
         </CardHeader>
@@ -64,9 +69,11 @@ export function LoginCard({ title, subtitle, onSubmit }: Props) {
               setSubmitting(true);
               try {
                 await onSubmit({ name: trimmedName, password: trimmedPassword, profileFile });
+                toast.success(`Welcome to ConvoLink, ${trimmedName}`);
               } catch (err) {
                 const message = err instanceof Error ? err.message : "Login failed";
                 setError(message);
+                toast.error(message);
               } finally {
                 setSubmitting(false);
               }
@@ -114,6 +121,32 @@ export function LoginCard({ title, subtitle, onSubmit }: Props) {
               {submitting ? "Entering..." : "Enter workspace"}
             </Button>
           </form>
+
+          {onGoogleSubmit ? (
+            <div className="space-y-2 border-t border-[color:var(--border-1)] pt-4">
+              <div className="text-center text-xs font-medium uppercase tracking-[0.18em] text-slate-500">Or</div>
+              <GoogleSignInButton
+                disabled={submitting}
+                onCredential={async (credential) => {
+                  setError(null);
+                  setSubmitting(true);
+                  try {
+                    const result = await onGoogleSubmit(credential);
+                    const welcomeName = result && typeof result === "object" && "name" in result
+                      ? (result.name ?? "there")
+                      : "there";
+                    toast.success(`Welcome to ConvoLink, ${welcomeName}`);
+                  } catch (err) {
+                    const message = err instanceof Error ? err.message : "Google login failed";
+                    setError(message);
+                    toast.error(message);
+                  } finally {
+                    setSubmitting(false);
+                  }
+                }}
+              />
+            </div>
+          ) : null}
         </CardContent>
       </Card>
     </motion.div>

@@ -14,7 +14,7 @@ export function parseGroupSlug(room: string): string | null {
   return slug || null;
 }
 
-function parseDirectRoom(room: string): { canonical: string; participants: [string, string] } | null {
+export function parseDirectRoom(room: string): { canonical: string; participants: [string, string] } | null {
   const parts = room
     .trim()
     .toLowerCase()

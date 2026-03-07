@@ -23,6 +23,10 @@ export const getMySettings = query({
       highContrast: existing?.highContrast ?? false,
       autoPlayGifs: existing?.autoPlayGifs ?? true,
       autoDownloadFiles: existing?.autoDownloadFiles ?? false,
+      onboardingSeenAt: existing?.onboardingSeenAt ?? null,
+      onboardingCompletedAt: existing?.onboardingCompletedAt ?? null,
+      lastVisitedKind: existing?.lastVisitedKind ?? null,
+      lastVisitedKey: existing?.lastVisitedKey ?? null,
     };
   },
 });

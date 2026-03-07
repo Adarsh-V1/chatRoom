@@ -1,10 +1,10 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useRef, useState } from "react";
+import { TextareaHTMLAttributes, useEffect, useRef, useState } from "react";
 import { useMutation, useQuery } from "convex/react";
-import { AnimatePresence, motion, useMotionValue, useScroll, useSpring, useTransform } from "framer-motion";
-import { ArrowRight, Bot, Compass, Mail, MessageSquareMore, Orbit, Sparkles, Wand2 } from "lucide-react";
+import { motion, useMotionValue, useScroll, useSpring, useTransform } from "framer-motion";
+import { ArrowRight, Bot, Mail, MessageSquareMore, Sparkles, Users, Video } from "lucide-react";
 import { gsap } from "gsap";
 import { ScrollTrigger } from "gsap/ScrollTrigger";
 import { toast } from "sonner";
@@ -12,62 +12,63 @@ import { api } from "@/convex/_generated/api";
 import { BrandLogo } from "@/src/components/app/brand-logo";
 import { Button } from "@/src/components/ui/button";
 import { Input } from "@/src/components/ui/input";
-import { TextareaHTMLAttributes } from "react";
 import { loadAuth } from "@/src/features/auth/authStorage";
+import { faqItems } from "@/src/features/landing/seo";
 import { HeroScene } from "./HeroScene";
 import { MiniScene } from "./MiniScene";
 import { cn } from "@/src/lib/utils";
 
 const navItems = [
-  { label: "Overview", href: "#overview" },
-  { label: "Flow", href: "#flow" },
+  { label: "Features", href: "#overview" },
+  { label: "Use cases", href: "#use-cases" },
+  { label: "FAQ", href: "#faq" },
   { label: "Contact", href: "#contact" },
 ];
 
 const featureCards = [
   {
-    icon: Orbit,
-    title: "Live conversation surfaces",
-    description: "Rooms, groups, calls, and presence all move together in one visual rhythm instead of feeling stitched on later.",
+    icon: MessageSquareMore,
+    title: "Real-time team chat rooms",
+    description: "Create focused spaces for projects, departments, and announcements without losing the thread.",
   },
   {
-    icon: Compass,
-    title: "Navigation that stays obvious",
-    description: "Clear anchors, directional content blocks, and fast CTAs keep first-time visitors from getting lost.",
+    icon: Users,
+    title: "Direct messages and private groups",
+    description: "Handle one-to-one conversations and smaller group discussions in the same workspace as public rooms.",
   },
   {
-    icon: Wand2,
-    title: "Modern motion with restraint",
-    description: "Framer Motion, GSAP scroll reveals, and a Three.js hero give the page energy without making it noisy.",
+    icon: Video,
+    title: "Presence and browser calls",
+    description: "See who is online, jump into a call, and keep chat context close when a conversation moves faster live.",
   },
 ];
 
 const flowCards = [
   {
     step: "01",
-    title: "Land, scan, decide",
-    copy: "The page opens with a product story, anchored sections, and immediate next actions so users understand the product before they sign in.",
+    title: "Remote teams",
+    copy: "Keep project rooms, quick direct messages, and live calls in one place so decisions do not get scattered across tools.",
   },
   {
     step: "02",
-    title: "Prompt at the right moment",
-    copy: "If there is no saved account on this browser, a delayed signup prompt appears after five seconds instead of interrupting on first paint.",
+    title: "Student and community groups",
+    copy: "Run announcements, subgroup discussions, and ad-hoc calls from a workspace members can learn quickly.",
   },
   {
     step: "03",
-    title: "Capture questions cleanly",
-    copy: "The contact form saves structured queries through Convex, so visitors can ask for help without leaving the page.",
+    title: "Fast-moving operations",
+    copy: "Use rooms for broad visibility, private groups for execution, and calls when text alone is too slow.",
   },
 ];
 
 const motionRail = [
-  "3D hero field",
-  "GSAP parallax",
-  "Framer reveal cadence",
-  "Cursor spotlight",
-  "Interactive CTA",
-  "Convex contact capture",
-  "Optional product tour",
+  "Real-time rooms",
+  "Direct messages",
+  "Private groups",
+  "Presence indicators",
+  "Browser calls",
+  "Responsive workspace",
+  "Convex-powered sync",
 ];
 
 const cosmicPanel =
@@ -125,8 +126,7 @@ function TiltCard({
 
 export function LandingPageClient() {
   const [storedAuth, setStoredAuth] = useState<{ name: string; token: string } | null>(null);
-  const [showSignupPrompt, setShowSignupPrompt] = useState(false);
-  const [dismissedPrompt, setDismissedPrompt] = useState(false);
+  const [showStickyCta, setShowStickyCta] = useState(false);
   const [contactName, setContactName] = useState("");
   const [contactEmail, setContactEmail] = useState("");
   const [contactSubject, setContactSubject] = useState("");
@@ -139,9 +139,10 @@ export function LandingPageClient() {
   const submitContactForm = useMutation(api.contact.submitContactForm);
 
   const authState = !token ? "signed-out" : sessionUser === undefined ? "loading" : sessionUser ? "signed-in" : "signed-out";
-  const ctaHref = authState === "signed-in" ? "/chat" : "/chat";
-  const ctaLabel = authState === "signed-in" ? "Open workspace" : "Go to sign up";
-  const secondaryLabel = authState === "signed-in" ? "Jump to contact" : "See how it works";
+  const ctaHref = "/chat?resume=1";
+  const ctaLabel = authState === "signed-in" ? "Open workspace" : "Start chatting";
+  const secondaryHref = authState === "signed-in" ? "#contact" : "#overview";
+  const secondaryLabel = authState === "signed-in" ? "Talk to us" : "Explore features";
 
   const { scrollYProgress } = useScroll();
   const heroY = useTransform(scrollYProgress, [0, 0.2], [0, -120]);
@@ -156,12 +157,14 @@ export function LandingPageClient() {
   }, []);
 
   useEffect(() => {
-    if (authState !== "signed-out" || dismissedPrompt) return;
-    const timer = window.setTimeout(() => {
-      setShowSignupPrompt(true);
-    }, 5000);
-    return () => window.clearTimeout(timer);
-  }, [authState, dismissedPrompt]);
+    const onScroll = () => {
+      setShowStickyCta(window.scrollY > 560);
+    };
+
+    onScroll();
+    window.addEventListener("scroll", onScroll, { passive: true });
+    return () => window.removeEventListener("scroll", onScroll);
+  }, []);
 
   useEffect(() => {
     gsap.registerPlugin(ScrollTrigger);
@@ -242,6 +245,7 @@ export function LandingPageClient() {
         style={{ x: glowX, y: glowY }}
       />
       <div className="landing-cosmic-stars pointer-events-none absolute inset-0" />
+      <div className="landing-cosmic-texture pointer-events-none absolute inset-0" />
       <div className="landing-cosmic-grid pointer-events-none absolute inset-0" />
       <div className="pointer-events-none absolute inset-0 overflow-hidden">
         <div
@@ -298,14 +302,14 @@ export function LandingPageClient() {
               >
                 <div className="inline-flex items-center gap-2 rounded-full border border-cyan-300/24 bg-[rgba(8,18,40,0.72)] px-4 py-2 text-xs font-semibold uppercase tracking-[0.24em] text-cyan-100 shadow-[0_18px_40px_-26px_rgba(34,211,238,0.24)]">
                   <Sparkles className="h-3.5 w-3.5" aria-hidden="true" />
-                  Cosmic landing experience
+                  Real-time collaboration workspace
                 </div>
                 <h1 className="mt-6 max-w-3xl text-5xl font-semibold tracking-[-0.05em] text-[color:var(--text-1)] sm:text-6xl lg:text-7xl">
-                  A sharper front door for{" "}
-                  <span className="bg-linear-to-r from-cyan-200 via-sky-300 to-amber-300 bg-clip-text text-transparent">ConvoLink</span>.
+                  Real-time team chat, group messaging, and calls in{" "}
+                  <span className="bg-linear-to-r from-cyan-200 via-sky-300 to-amber-300 bg-clip-text text-transparent">one workspace</span>.
                 </h1>
                 <p className="mt-6 max-w-2xl text-base leading-8 text-[color:var(--text-2)] sm:text-lg">
-                  This landing page introduces the product with depth, motion, and clear decisions. New visitors can explore first, then get prompted to sign up at the right moment instead of being forced into auth immediately.
+                  ConvoLink helps teams manage chat rooms, direct messages, private groups, presence, and browser-based calls from a single collaboration surface built for fast communication.
                 </p>
 
                 <div className="mt-8 flex flex-col gap-3 sm:flex-row">
@@ -315,7 +319,7 @@ export function LandingPageClient() {
                       <ArrowRight className="h-4 w-4" aria-hidden="true" />
                     </Button>
                   </Link>
-                  <a href={authState === "signed-in" ? "#contact" : "#flow"}>
+                  <a href={secondaryHref}>
                     <Button variant="outline" size="lg" className="min-w-48">
                       {secondaryLabel}
                     </Button>
@@ -324,9 +328,9 @@ export function LandingPageClient() {
 
                 <div className="mt-10 grid gap-3 sm:grid-cols-3">
                   {[
-                    ["Real-time chat", "Rooms, groups, calls, and presence stay aligned."],
-                    ["Smart prompts", "Delayed signup modal only for unsigned visitors."],
-                    ["Stored contact flow", "Questions are captured in Convex, not dropped."],
+                    ["Team chat rooms", "Organize conversations by topic, project, or department."],
+                    ["Direct and group messages", "Move from 1:1 threads to smaller collaboration spaces quickly."],
+                    ["Calls and presence", "See who is online and launch browser conversations fast."],
                   ].map(([title, copy]) => (
                     <TiltCard key={title} className={cn("rounded-[28px] p-4", cosmicPanel)}>
                       <div className="text-sm font-semibold text-[color:var(--text-1)]">{title}</div>
@@ -362,12 +366,12 @@ export function LandingPageClient() {
           <section id="overview" className="px-4 py-20 sm:px-6">
             <div className="mx-auto max-w-7xl">
               <div data-reveal className="max-w-3xl">
-                <div className="text-xs font-semibold uppercase tracking-[0.24em] text-[color:var(--accent-text)]">Overview</div>
+                <div className="text-xs font-semibold uppercase tracking-[0.24em] text-[color:var(--accent-text)]">Features</div>
                 <h2 className="mt-4 text-4xl font-semibold tracking-[-0.04em] text-[color:var(--text-1)] sm:text-5xl">
-                  The page stays sleek, readable, and directional.
+                  Everything teams need for faster communication in one place.
                 </h2>
                 <p className="mt-4 text-base leading-8 text-[color:var(--text-2)]">
-                  Instead of stacking generic product sections, the landing page uses an editorial rhythm: hero, capabilities, flow, and a direct query channel.
+                  ConvoLink combines team chat software, direct messaging, private group coordination, and live calling so work can move without constant tool switching.
                 </p>
               </div>
 
@@ -378,7 +382,7 @@ export function LandingPageClient() {
                     <TiltCard key={card.title} className={cn("rounded-[32px] p-6", cosmicPanel)}>
                       <article data-reveal>
                         <div className={cn("relative h-28 overflow-hidden rounded-[26px] border border-cyan-200/12", cosmicScene)}>
-                          <MiniScene hue={card.title.includes("Live") ? 176 : card.title.includes("Navigation") ? 197 : 38} />
+                          <MiniScene hue={card.title.includes("Real-time") ? 176 : card.title.includes("Direct") ? 197 : 38} />
                         </div>
                         <div className="mt-5 flex h-12 w-12 items-center justify-center rounded-2xl border border-cyan-300/18 bg-[rgba(10,20,42,0.8)] text-cyan-100">
                           <Icon className="h-5 w-5" aria-hidden="true" />
@@ -397,18 +401,18 @@ export function LandingPageClient() {
             <div className="mx-auto grid max-w-7xl gap-5 lg:grid-cols-[1.12fr_0.88fr]">
               <TiltCard className={cn("rounded-[36px] p-8", cosmicPanel)}>
                 <div data-reveal>
-                  <div className="text-xs font-semibold uppercase tracking-[0.24em] text-[color:var(--accent-text)]">Interactive layer</div>
+                  <div className="text-xs font-semibold uppercase tracking-[0.24em] text-[color:var(--accent-text)]">Workspace flow</div>
                   <h2 className="mt-4 text-4xl font-semibold tracking-[-0.04em] text-[color:var(--text-1)] sm:text-5xl">
-                    The page reacts to motion, hover, click, and scroll at the same time.
+                    Move from chat rooms to calls without changing products.
                   </h2>
                   <p className="mt-4 max-w-2xl text-base leading-8 text-[color:var(--text-2)]">
-                    Cursor glow, animated rail, 3D hero motion, tilting cards, and scroll-based reveals make the landing page feel alive without turning into noise.
+                    The workspace keeps conversations close together so teams can scan rooms, jump into direct threads, and start calls when typing is no longer enough.
                   </p>
                   <div className="mt-8 grid gap-4 sm:grid-cols-3">
                     {[
-                      ["Hover", "Cards tilt and deepen"],
-                      ["Click", "Hero reacts with pulse feedback"],
-                      ["Scroll", "Sections reveal with layered parallax"],
+                      ["Rooms", "Shared channels for ongoing team topics"],
+                      ["Groups", "Private collaboration spaces for smaller teams"],
+                      ["Calls", "Live conversations launched from the same workspace"],
                     ].map(([title, copy]) => (
                       <motion.div
                         key={title}
@@ -430,10 +434,10 @@ export function LandingPageClient() {
                       <MiniScene hue={hue} />
                     </div>
                     <div className="mt-4 text-sm font-semibold uppercase tracking-[0.22em] text-[color:var(--accent-text)]">
-                      {index === 0 ? "Ambient node" : "Signal ring"}
+                      {index === 0 ? "Real-time state" : "Responsive surface"}
                     </div>
                     <div className="mt-2 text-xl font-semibold text-[color:var(--text-1)]">
-                      {index === 0 ? "Secondary 3D surface" : "Motion detail card"}
+                      {index === 0 ? "Presence-aware collaboration" : "Built for desktop and mobile"}
                     </div>
                   </TiltCard>
                 ))}
@@ -441,21 +445,23 @@ export function LandingPageClient() {
             </div>
           </section>
 
-          <section id="flow" className="px-4 py-20 sm:px-6">
+          <section id="use-cases" className="px-4 py-20 sm:px-6">
             <div className="mx-auto grid max-w-7xl gap-6 lg:grid-cols-[0.9fr_1.1fr]">
               <div data-reveal className={cn("rounded-[36px] p-8", cosmicPanel)}>
-                <div className="text-xs font-semibold uppercase tracking-[0.24em] text-[color:var(--accent-text)]">Flow design</div>
-                <h2 className="mt-4 text-4xl font-semibold tracking-[-0.04em] text-[color:var(--text-1)]">The product story now unfolds in sequence.</h2>
+                <div className="text-xs font-semibold uppercase tracking-[0.24em] text-[color:var(--accent-text)]">Use cases</div>
+                <h2 className="mt-4 text-4xl font-semibold tracking-[-0.04em] text-[color:var(--text-1)]">
+                  Built for teams, communities, and fast-moving projects.
+                </h2>
                 <p className="mt-4 text-base leading-8 text-[color:var(--text-2)]">
-                  Visitors can move by scrolling or use anchor links. Either way, the page keeps a strong sense of direction and never loses the call to action.
+                  Whether the goal is daily team communication or quick coordination for smaller groups, ConvoLink keeps the most common collaboration paths in one place.
                 </p>
                 <div className={cn("mt-8 rounded-[28px] p-6", cosmicInset)}>
                   <div className="flex items-center gap-3">
                     <Bot className="h-5 w-5 text-cyan-200" aria-hidden="true" />
-                    <div className="text-sm font-semibold text-[color:var(--text-1)]">Adaptive CTA state</div>
+                    <div className="text-sm font-semibold text-[color:var(--text-1)]">One workspace, fewer switches</div>
                   </div>
                   <p className="mt-3 text-sm leading-7 text-[color:var(--text-2)]">
-                    Unsigned visitors get a signup prompt after five seconds. Signed-in visitors keep the same experience, but the primary button becomes a direct workspace entry point.
+                    Shared rooms cover broad updates, direct threads handle focused discussion, and calls take over when a conversation needs faster resolution.
                   </p>
                 </div>
               </div>
@@ -479,13 +485,15 @@ export function LandingPageClient() {
           <section className="px-4 py-20 sm:px-6">
             <div className="mx-auto grid max-w-7xl gap-6 lg:grid-cols-[1.05fr_0.95fr]">
               <div data-reveal className={cn("rounded-[36px] p-8", cosmicPanel)}>
-                <div className="text-xs font-semibold uppercase tracking-[0.24em] text-[color:var(--accent-text)]">Why it feels better</div>
-                <h2 className="mt-4 text-4xl font-semibold tracking-[-0.04em] text-[color:var(--text-1)]">Better first impression, less friction, more momentum.</h2>
+                <div className="text-xs font-semibold uppercase tracking-[0.24em] text-[color:var(--accent-text)]">Why teams choose ConvoLink</div>
+                <h2 className="mt-4 text-4xl font-semibold tracking-[-0.04em] text-[color:var(--text-1)]">
+                  Faster coordination starts with a simpler communication stack.
+                </h2>
                 <div className="mt-8 grid gap-4 sm:grid-cols-3">
                   {[
-                    ["5 sec", "Delayed signup nudge"],
-                    ["3 layers", "Three.js, GSAP, Framer Motion working together"],
-                    ["1 route", "A real marketing surface at `/`"],
+                    ["Rooms + DMs", "Public channels and direct conversations in one workspace"],
+                    ["Live sync", "Real-time updates keep teams aligned as messages arrive"],
+                    ["Built-in calls", "Switch from typing to live discussion without leaving the app"],
                   ].map(([value, label]) => (
                     <div key={label} className={cn("rounded-[26px] p-4", cosmicInset)}>
                       <div className="text-3xl font-semibold text-[color:var(--text-1)]">{value}</div>
@@ -499,7 +507,7 @@ export function LandingPageClient() {
                 data-reveal
                 className="rounded-[36px] border border-cyan-200/12 bg-[radial-gradient(circle_at_top_left,rgba(56,189,248,0.16),transparent_28%),linear-gradient(180deg,rgba(9,17,36,0.92),rgba(5,10,23,0.88))] p-8 text-white shadow-[0_34px_100px_-44px_rgba(2,6,23,0.82)]"
               >
-                <div className="text-xs font-semibold uppercase tracking-[0.24em] text-cyan-200">In-page navigation</div>
+                <div className="text-xs font-semibold uppercase tracking-[0.24em] text-cyan-200">Explore ConvoLink</div>
                 <div className="mt-4 space-y-4">
                   {navItems.map((item) => (
                     <a
@@ -513,8 +521,31 @@ export function LandingPageClient() {
                   ))}
                 </div>
                 <p className="mt-6 text-sm leading-7 text-slate-200/88">
-                  The nav is purpose-built for the landing page instead of reusing the application shell, so it behaves like a proper marketing surface.
+                  Product overview, use cases, common questions, and contact options are all kept close so visitors can evaluate the workspace quickly.
                 </p>
+              </div>
+            </div>
+          </section>
+
+          <section id="faq" className="px-4 py-20 sm:px-6">
+            <div className="mx-auto grid max-w-7xl gap-6 lg:grid-cols-[0.86fr_1.14fr]">
+              <div data-reveal className={cn("rounded-[36px] p-8", cosmicPanel)}>
+                <div className="text-xs font-semibold uppercase tracking-[0.24em] text-[color:var(--accent-text)]">FAQ</div>
+                <h2 className="mt-4 text-4xl font-semibold tracking-[-0.04em] text-[color:var(--text-1)] sm:text-5xl">
+                  Common questions about the team chat workspace.
+                </h2>
+                <p className="mt-4 text-base leading-8 text-[color:var(--text-2)]">
+                  These answers help visitors understand where ConvoLink fits before they create an account or reach out for onboarding help.
+                </p>
+              </div>
+
+              <div className="grid gap-4">
+                {faqItems.map((item) => (
+                  <article key={item.question} data-reveal className={cn("rounded-[32px] p-6", cosmicPanel)}>
+                    <h3 className="text-2xl font-semibold tracking-tight text-[color:var(--text-1)]">{item.question}</h3>
+                    <p className="mt-3 text-sm leading-7 text-[color:var(--text-2)]">{item.answer}</p>
+                  </article>
+                ))}
               </div>
             </div>
           </section>
@@ -526,17 +557,19 @@ export function LandingPageClient() {
                   <Mail className="h-3.5 w-3.5" aria-hidden="true" />
                   Contact
                 </div>
-                <h2 className="mt-5 text-4xl font-semibold tracking-[-0.04em] text-[color:var(--text-1)]">Send a query without leaving the page.</h2>
+                <h2 className="mt-5 text-4xl font-semibold tracking-[-0.04em] text-[color:var(--text-1)]">
+                  Talk to the team about onboarding, fit, or feature questions.
+                </h2>
                 <p className="mt-4 text-base leading-8 text-[color:var(--text-2)]">
-                  Use this for partnership questions, feature requests, onboarding help, or implementation feedback. Submissions are stored through Convex.
+                  Use this form for implementation questions, onboarding help, partnership ideas, or feedback about the collaboration workspace. Submissions are stored through Convex.
                 </p>
                 <div className={cn("mt-8 rounded-[28px] p-5", cosmicInset)}>
                   <div className="flex items-center gap-3">
                     <MessageSquareMore className="h-5 w-5 text-cyan-200" aria-hidden="true" />
-                    <div className="text-sm font-semibold text-[color:var(--text-1)]">Response-ready capture</div>
+                    <div className="text-sm font-semibold text-[color:var(--text-1)]">Structured product inquiries</div>
                   </div>
                   <p className="mt-3 text-sm leading-7 text-[color:var(--text-2)]">
-                    Name, email, subject, and message are saved in a structured way so follow-up can happen without asking the same questions twice.
+                    Name, email, subject, and message are saved in a structured way so follow-up can happen without repeating the same setup questions.
                   </p>
                 </div>
               </div>
@@ -589,51 +622,23 @@ export function LandingPageClient() {
         </main>
       </motion.div>
 
-      <AnimatePresence>
-        {showSignupPrompt && authState === "signed-out" ? (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 z-[70] flex items-end justify-center bg-[rgba(2,6,18,0.68)] p-4 backdrop-blur-sm sm:items-center"
-          >
-            <motion.div
-              initial={{ opacity: 0, y: 26, scale: 0.98 }}
-              animate={{ opacity: 1, y: 0, scale: 1 }}
-              exit={{ opacity: 0, y: 18, scale: 0.98 }}
-              transition={{ duration: 0.3, ease: [0.22, 1, 0.36, 1] }}
-              className={cn("w-full max-w-lg rounded-[34px] p-7", cosmicPanel)}
-            >
-              <div className="inline-flex items-center gap-2 rounded-full border border-amber-300/24 bg-[rgba(33,18,4,0.62)] px-4 py-2 text-xs font-semibold uppercase tracking-[0.22em] text-amber-100">
-                <Sparkles className="h-3.5 w-3.5" aria-hidden="true" />
-                Ready to join?
+      {showStickyCta ? (
+        <div className="pointer-events-none fixed inset-x-0 bottom-4 z-[70] px-4">
+          <div className="mx-auto flex max-w-xl justify-center">
+            <div className="pointer-events-auto flex items-center gap-3 rounded-full border border-cyan-200/16 bg-[rgba(7,14,31,0.86)] px-4 py-3 shadow-[0_24px_60px_-36px_rgba(2,6,23,0.82)] backdrop-blur-2xl">
+              <div className="hidden text-sm font-medium text-[color:var(--text-2)] sm:block">
+                Ready to move from the landing page into the workspace?
               </div>
-              <h3 className="mt-5 text-3xl font-semibold tracking-[-0.04em] text-[color:var(--text-1)]">Create your ConvoLink account.</h3>
-              <p className="mt-3 text-sm leading-7 text-[color:var(--text-2)]">
-                You have had a chance to look around. If you want to start chatting, groups and calls are waiting on the sign up screen.
-              </p>
-              <div className="mt-6 flex flex-col gap-3 sm:flex-row">
-                <Link href="/chat" className="flex-1">
-                  <Button className="w-full" size="lg">
-                    Go to sign up
-                  </Button>
-                </Link>
-                <Button
-                  variant="outline"
-                  size="lg"
-                  className="flex-1"
-                  onClick={() => {
-                    setDismissedPrompt(true);
-                    setShowSignupPrompt(false);
-                  }}
-                >
-                  Keep exploring
+              <Link href={ctaHref}>
+                <Button size="sm">
+                  {ctaLabel}
+                  <ArrowRight className="h-4 w-4" aria-hidden="true" />
                 </Button>
-              </div>
-            </motion.div>
-          </motion.div>
-        ) : null}
-      </AnimatePresence>
+              </Link>
+            </div>
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 }

@@ -69,6 +69,12 @@ export default defineSchema({
     highContrast: v.optional(v.boolean()),
     autoPlayGifs: v.optional(v.boolean()),
     autoDownloadFiles: v.optional(v.boolean()),
+    onboardingSeenAt: v.optional(v.number()),
+    onboardingCompletedAt: v.optional(v.number()),
+    lastVisitedKind: v.optional(
+      v.union(v.literal("general"), v.literal("direct"), v.literal("group"))
+    ),
+    lastVisitedKey: v.optional(v.string()),
     updatedAt: v.number(),
   }).index("by_userId", ["userId"]),
 

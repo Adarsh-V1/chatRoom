@@ -1,16 +1,18 @@
 "use client";
 
-import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import React, { Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { FaceLandmarker, NormalizedLandmark } from "@mediapipe/tasks-vision";
 import { useMutation, useQuery } from "convex/react";
-import { useParams, useRouter } from "next/navigation";
+import { useParams, useRouter, useSearchParams } from "next/navigation";
 
 import { api } from "@/convex/_generated/api";
 import { CallControls } from "@/src/features/call/CallControls";
 import { VideoGrid } from "@/src/features/call/VideoGrid";
+import { sanitizeReturnTo } from "@/src/features/auth/returnTo";
 import { useChatAuth } from "@/src/features/auth/useChatAuth";
 import { ChatFeed } from "@/src/features/chat/chatFeed";
 import { ChatForm } from "@/src/features/chat/chatForm";
+import { buildConversationRefFromRoom } from "@/src/features/workspace/conversations";
 import {
   drawFaceEffect,
   filterNeedsFace,
@@ -22,18 +24,30 @@ const FACE_LANDMARKER_WASM_URL = "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-
 const FACE_LANDMARKER_MODEL_URL =
   "https://storage.googleapis.com/mediapipe-models/face_landmarker/face_landmarker/float16/1/face_landmarker.task";
 
-export default function CallRoomPage() {
+function CallRoomPageInner() {
   const params = useParams();
   const rawRoomId = params?.roomId;
   const roomId = Array.isArray(rawRoomId)
     ? rawRoomId[0] ?? ""
     : (rawRoomId ?? "").toString();
   const router = useRouter();
+  const searchParams = useSearchParams();
   const auth = useChatAuth();
+  const requestedReturnTo = sanitizeReturnTo(searchParams.get("returnTo"));
 
   const call = useQuery(
     api.calls.getCallByRoomId,
     auth.isLoggedIn && roomId ? { token: auth.token ?? "", roomId } : "skip"
+  );
+  const conversationRef = useMemo(() => {
+    if (!call?.conversationId || !auth.name) return null;
+    return buildConversationRefFromRoom(call.conversationId, auth.name);
+  }, [auth.name, call?.conversationId]);
+  const conversationMeta = useQuery(
+    api.workspace.getConversationMeta,
+    auth.isLoggedIn && auth.token && conversationRef
+      ? { token: auth.token, conversationRef }
+      : "skip"
   );
   const endCall = useMutation(api.calls.endCall);
   const startCall = useMutation(api.calls.startCall);
@@ -94,6 +108,13 @@ export default function CallRoomPage() {
     const starter = (call?.startedByName ?? "").trim().toLowerCase();
     return Boolean(me && starter && me === starter);
   }, [auth.name, call?.startedByName]);
+
+  const fallbackReturnTo = requestedReturnTo ?? conversationMeta?.conversation.route ?? "/chat";
+  const navigateBack = useCallback(() => {
+    router.push(fallbackReturnTo);
+  }, [fallbackReturnTo, router]);
+  const callTitle = conversationMeta?.conversation.title ?? roomId;
+  const remoteLabel = conversationMeta?.peer?.name ?? conversationMeta?.conversation.title ?? "Peer";
 
   const signals = useQuery(
     api.webrtc.listSignals,
@@ -892,7 +913,7 @@ export default function CallRoomPage() {
             )}
             <button
               type="button"
-              onClick={() => router.push("/chat")}
+              onClick={navigateBack}
               className="mt-5 w-full rounded-xl bg-indigo-500 px-4 py-3 text-base font-semibold text-white shadow hover:bg-indigo-400 focus:outline-none focus:ring-2 focus:ring-indigo-400/70 active:scale-[0.98]"
             >
               Back to chat
@@ -926,7 +947,7 @@ export default function CallRoomPage() {
             </p>
             <button
               type="button"
-              onClick={() => router.push("/chat")}
+              onClick={() => router.push(`/chat?returnTo=${encodeURIComponent(`/call/${roomId}`)}`)}
               className="mt-5 w-full rounded-xl bg-indigo-500 px-4 py-3 text-base font-semibold text-white shadow hover:bg-indigo-400 focus:outline-none focus:ring-2 focus:ring-indigo-400/70 active:scale-[0.98]"
             >
               Go to chat
@@ -946,7 +967,7 @@ export default function CallRoomPage() {
             <p className="theme-muted mt-2 text-sm">This room id is not active.</p>
             <button
               type="button"
-              onClick={() => router.push("/chat")}
+              onClick={navigateBack}
               className="mt-5 w-full rounded-xl bg-indigo-500 px-4 py-3 text-base font-semibold text-white shadow hover:bg-indigo-400 focus:outline-none focus:ring-2 focus:ring-indigo-400/70 active:scale-[0.98]"
             >
               Back to chat
@@ -966,7 +987,7 @@ export default function CallRoomPage() {
             <p className="theme-muted mt-2 text-sm">This call is no longer active.</p>
             <button
               type="button"
-              onClick={() => router.push("/chat")}
+              onClick={navigateBack}
               className="mt-5 w-full rounded-xl bg-indigo-500 px-4 py-3 text-base font-semibold text-white shadow hover:bg-indigo-400 focus:outline-none focus:ring-2 focus:ring-indigo-400/70 active:scale-[0.98]"
             >
               Back to chat
@@ -986,7 +1007,7 @@ export default function CallRoomPage() {
             <p className="theme-muted mt-2 text-sm">{error}</p>
             <button
               type="button"
-              onClick={() => router.push("/chat")}
+              onClick={navigateBack}
               className="mt-5 w-full rounded-xl bg-indigo-500 px-4 py-3 text-base font-semibold text-white shadow hover:bg-indigo-400 focus:outline-none focus:ring-2 focus:ring-indigo-400/70 active:scale-[0.98]"
             >
               Back to chat
@@ -1008,7 +1029,7 @@ export default function CallRoomPage() {
             <p className="theme-muted mt-2 text-sm">{mediaError}</p>
             <button
               type="button"
-              onClick={() => router.push("/chat")}
+              onClick={navigateBack}
               className="mt-5 w-full rounded-xl bg-indigo-500 px-4 py-3 text-base font-semibold text-white shadow hover:bg-indigo-400 focus:outline-none focus:ring-2 focus:ring-indigo-400/70 active:scale-[0.98]"
             >
               Back to chat
@@ -1039,7 +1060,10 @@ export default function CallRoomPage() {
             <header className="flex items-center justify-between gap-3 px-1 pb-2">
               <div className="min-w-0">
                 <div className="theme-faint text-xs font-semibold tracking-widest">IN CALL</div>
-                <div className="theme-text truncate text-base font-semibold">Room: {roomId}</div>
+                <div className="theme-text truncate text-base font-semibold">{callTitle}</div>
+                <div className="theme-muted mt-1 text-xs font-semibold">
+                  Room id: {roomId}
+                </div>
                 <div className="theme-muted mt-1 text-xs font-semibold">
                   Status: {connectionState}
                 </div>
@@ -1049,7 +1073,7 @@ export default function CallRoomPage() {
               </div>
               <button
                 type="button"
-                onClick={() => router.push("/chat")}
+                onClick={navigateBack}
                 className="theme-chip rounded-xl border px-4 py-2 text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-cyan-400/40 active:scale-[0.98]"
               >
                 Back
@@ -1080,7 +1104,7 @@ export default function CallRoomPage() {
                 localStream={localStream}
                 remoteStream={remoteStream}
                 localLabel={auth.name ?? "You"}
-                remoteLabel="Peer"
+                remoteLabel={remoteLabel}
                 pipMode={pipEnabled}
                 blurLocal={blurEnabled}
                 onRemoteVideoReady={(el) => {
@@ -1155,7 +1179,7 @@ export default function CallRoomPage() {
                       // Ignore: leaving still navigates away.
                     }
                   }
-                  router.push("/chat");
+                  navigateBack();
                 }}
               />
             </div>
@@ -1188,5 +1212,23 @@ export default function CallRoomPage() {
         </div>
       </div>
     </main>
+  );
+}
+
+export default function CallRoomPage() {
+  return (
+    <Suspense
+      fallback={
+        <main className="theme-page min-h-screen w-full p-4 sm:p-6">
+          <div className="mx-auto flex min-h-[calc(100dvh-2rem)] w-full max-w-md items-center justify-center">
+            <div className="theme-panel w-full rounded-2xl border p-8 shadow backdrop-blur">
+              <div className="theme-text text-base font-semibold">Loading call…</div>
+            </div>
+          </div>
+        </main>
+      }
+    >
+      <CallRoomPageInner />
+    </Suspense>
   );
 }

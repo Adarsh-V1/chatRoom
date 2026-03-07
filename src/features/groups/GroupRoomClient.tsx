@@ -1,11 +1,10 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useMutation, useQuery } from "convex/react";
-import { ArrowLeft, Crown, Send, UserPlus } from "lucide-react";
-import { useRouter } from "next/navigation";
+import { ArrowLeft, Crown, PhoneCall, Send, UserPlus } from "lucide-react";
+import { usePathname, useRouter } from "next/navigation";
 import { api } from "@/convex/_generated/api";
-import type { Id } from "@/convex/_generated/dataModel";
 import { CenteredState, LoadingScreen, PageContainer, PageHeader, PageShell } from "@/src/components/app/page-shell";
 import { Badge } from "@/src/components/ui/badge";
 import { Button } from "@/src/components/ui/button";
@@ -13,8 +12,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/src
 import { Input } from "@/src/components/ui/input";
 import { ChatFeed } from "@/src/features/chat/chatFeed";
 import { ChatForm } from "@/src/features/chat/chatForm";
-import { LoginCard } from "@/src/features/auth/LoginCard";
 import { useChatAuth } from "@/src/features/auth/useChatAuth";
+import { buildCallHref, buildGroupConversationRef } from "@/src/features/workspace/conversations";
 
 const GROUP_ROOM_PREFIX = "group:";
 
@@ -24,19 +23,24 @@ type Props = {
 
 export function GroupRoomClient({ slug }: Props) {
   const router = useRouter();
+  const pathname = usePathname();
   const auth = useChatAuth();
   const token = auth.token ?? "";
-
-  const generateUploadUrl = useMutation(api.chats.generateUploadUrl);
-  const setMyProfilePicture = useMutation(api.users.setMyProfilePicture);
   const joinGroup = useMutation(api.groups.joinGroup);
   const leaveGroup = useMutation(api.groups.leaveGroup);
   const inviteMember = useMutation(api.groups.inviteMember);
+  const startCall = useMutation(api.calls.startCall);
+  const endCall = useMutation(api.calls.endCall);
+  const saveLastVisited = useMutation(api.workspace.saveLastVisited);
 
   const group = useQuery(api.groups.getGroupBySlug, { slug });
   const membership = useQuery(api.groups.getMyMembership, auth.isLoggedIn && group ? { token, groupId: group._id } : "skip");
   const invite = useQuery(api.groups.getMyInviteForGroup, auth.isLoggedIn && group ? { token, groupId: group._id } : "skip");
   const members = useQuery(api.groups.listGroupMembers, auth.isLoggedIn && group ? { token, groupId: group._id } : "skip");
+  const activeCall = useQuery(
+    api.calls.getActiveCall,
+    auth.isLoggedIn && group ? { token, conversationId: `${GROUP_ROOM_PREFIX}${group.slug}` } : "skip"
+  );
 
   const [inviteName, setInviteName] = useState("");
   const [inviteStatus, setInviteStatus] = useState<string | null>(null);
@@ -45,45 +49,16 @@ export function GroupRoomClient({ slug }: Props) {
   const canJoin = Boolean(group && (group.isPublic || invite));
   const isOwner = membership?.role === "owner";
 
+  useEffect(() => {
+    if (!auth.isLoggedIn || !token || !group) return;
+    void saveLastVisited({
+      token,
+      conversationRef: buildGroupConversationRef(group.name, group.slug),
+    });
+  }, [auth.isLoggedIn, group, saveLastVisited, token]);
+
   if (!auth.isReady) {
     return <LoadingScreen title="Loading group room..." description="Checking access and bringing in recent messages." />;
-  }
-
-  if (!auth.isLoggedIn) {
-    return (
-      <PageShell>
-        <PageContainer className="flex min-h-[calc(100dvh-8rem)] items-center justify-center">
-          <div className="w-full max-w-xl">
-            <LoginCard
-              title="Join group"
-              subtitle="Sign in to access group chat, media, and membership actions."
-              onGoogleSubmit={auth.loginWithGoogle}
-              onSubmit={async ({ name: loginName, password, profileFile }) => {
-              const result = await auth.login({ name: loginName, password });
-
-              if (profileFile) {
-                const uploadUrl = await generateUploadUrl({ token: result.token });
-                const res = await fetch(uploadUrl, {
-                    method: "POST",
-                    headers: {
-                      "Content-Type": profileFile.type || "application/octet-stream",
-                    },
-                    body: profileFile,
-                  });
-                  if (res.ok) {
-                    const json = (await res.json()) as { storageId: string };
-                    await setMyProfilePicture({
-                      token: result.token,
-                      storageId: json.storageId as Id<"_storage">,
-                    });
-                  }
-                }
-              }}
-            />
-          </div>
-        </PageContainer>
-      </PageShell>
-    );
   }
 
   if (group === null) {
@@ -117,6 +92,22 @@ export function GroupRoomClient({ slug }: Props) {
     );
   }
 
+  const joinOrStartCall = async () => {
+    if (!group) return;
+
+    if (activeCall?.roomId) {
+      router.push(buildCallHref(activeCall.roomId, pathname));
+      return;
+    }
+
+    const result = await startCall({ token, conversationId: room });
+    router.push(buildCallHref(result.roomId, pathname));
+  };
+
+  const isCallStarter = Boolean(
+    activeCall?.startedByName && auth.name && activeCall.startedByName.trim().toLowerCase() === auth.name.trim().toLowerCase()
+  );
+
   return (
     <PageShell className="flex h-[calc(100dvh-var(--app-header-height))] min-h-0 flex-col overflow-hidden">
       <PageContainer className="flex min-h-0 flex-1 flex-col overflow-hidden">
@@ -128,6 +119,10 @@ export function GroupRoomClient({ slug }: Props) {
             <div className="flex flex-wrap items-center gap-2">
               <Badge variant={group.isPublic ? "success" : "secondary"}>{group.isPublic ? "Public" : "Private"}</Badge>
               <Badge variant="outline">/{group.slug}</Badge>
+              <Button variant="secondary" size="sm" onClick={joinOrStartCall}>
+                <PhoneCall className="h-4 w-4" aria-hidden="true" />
+                {activeCall?.roomId ? "Join call" : "Start call"}
+              </Button>
             </div>
           }
         />
@@ -140,6 +135,7 @@ export function GroupRoomClient({ slug }: Props) {
                 <div className="mt-1 flex flex-wrap items-center gap-2 text-sm text-[color:var(--text-2)]">
                   <span>{members?.length ?? 0} members</span>
                   {isOwner ? <Badge variant="warning">Owner</Badge> : <Badge variant="outline">{membership.role}</Badge>}
+                  {activeCall?.roomId ? <Badge variant="secondary">Active call</Badge> : null}
                 </div>
               </div>
               <div className="flex flex-wrap items-center gap-2">
@@ -161,6 +157,36 @@ export function GroupRoomClient({ slug }: Props) {
                 ) : null}
               </div>
             </div>
+
+            {activeCall?.roomId ? (
+              <div className="mt-4 flex flex-col gap-3 rounded-[24px] border border-[color:var(--brand-border)] bg-[color:var(--surface-3)] px-4 py-4 sm:flex-row sm:items-center sm:justify-between">
+                <button
+                  type="button"
+                  onClick={() => router.push(buildCallHref(activeCall.roomId, pathname))}
+                  className="flex min-w-0 flex-1 items-center justify-between gap-4 text-left"
+                >
+                  <div className="min-w-0">
+                    <div className="text-xs font-semibold uppercase tracking-[0.22em] text-[color:var(--accent-text)]">Active call</div>
+                    <div className="truncate text-sm font-semibold text-[color:var(--text-1)]">
+                      {activeCall.startedByName ? `Started by ${activeCall.startedByName}` : "A call is already in progress"}
+                    </div>
+                  </div>
+                  <Badge variant="default">Join now</Badge>
+                </button>
+                {isCallStarter ? (
+                  <Button
+                    variant="destructive"
+                    size="sm"
+                    onClick={() => {
+                      if (!token) return;
+                      void endCall({ token, roomId: activeCall.roomId });
+                    }}
+                  >
+                    End call
+                  </Button>
+                ) : null}
+              </div>
+            ) : null}
 
             <div className="mt-4 flex min-h-0 flex-1 flex-col overflow-hidden">
               <ChatFeed currentUser={auth.name ?? ""} room={room} token={token} />

@@ -27,6 +27,7 @@ import type * as typing from "../typing.js";
 import type * as unread from "../unread.js";
 import type * as users from "../users.js";
 import type * as webrtc from "../webrtc.js";
+import type * as workspace from "../workspace.js";
 
 import type {
   ApiFromModules,
@@ -54,6 +55,7 @@ declare const fullApi: ApiFromModules<{
   unread: typeof unread;
   users: typeof users;
   webrtc: typeof webrtc;
+  workspace: typeof workspace;
 }>;
 
 /**

@@ -1,11 +1,12 @@
 import type { MetadataRoute } from "next";
+import { siteDescription, siteName } from "@/src/features/landing/seo";
 
 export default function manifest(): MetadataRoute.Manifest {
   return {
-    name: "ConvoLink",
-    short_name: "ConvoLink",
-    description: "A modern team chat workspace powered by Convex.",
-    start_url: "/chat",
+    name: siteName,
+    short_name: siteName,
+    description: siteDescription,
+    start_url: "/",
     display: "standalone",
     background_color: "#edf3fb",
     theme_color: "#0f766e",

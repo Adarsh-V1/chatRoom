@@ -7,7 +7,7 @@ import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { api } from "@/convex/_generated/api";
 import type { Id } from "@/convex/_generated/dataModel";
-import { LoadingScreen, PageContainer, PageHeader, PageShell } from "@/src/components/app/page-shell";
+import { LoadingScreen, PageContainer, PageShell } from "@/src/components/app/page-shell";
 import { Badge } from "@/src/components/ui/badge";
 import { Button } from "@/src/components/ui/button";
 import { Card } from "@/src/components/ui/card";
@@ -66,8 +66,6 @@ const GeneralChatClient = () => {
     activeCall?.startedByName && auth.name && activeCall.startedByName.trim().toLowerCase() === auth.name.trim().toLowerCase()
   );
 
-  const roomPriority = useQuery(api.priorities.getRoomPriority, auth.isLoggedIn ? { token, room: chatRoom } : "skip");
-  const isPriority = Boolean(roomPriority?.priority);
   const shouldOfferTour = auth.isLoggedIn && Boolean(username) && getTourState(username) === "pending" && !tourPromptDismissed && !tourOpen;
   const swipeHandlers = useHorizontalSwipe({
     onSwipeLeft: () => setIsUserListOpen(true),
@@ -119,14 +117,7 @@ const GeneralChatClient = () => {
   return (
     <PageShell className="flex h-[calc(100dvh-var(--app-header-height))] min-h-0 flex-col overflow-hidden">
       <PageContainer className="flex min-h-0 flex-1 flex-col overflow-hidden">
-        <PageHeader
-          eyebrow="Workspace"
-          title={selectedUser && selectedUser !== username ? `Direct chat with ${selectedUser}` : "General room"}
-          description="A responsive multi-theme workspace tuned for daily team messaging, direct threads, priorities, and quick calls."
-          action={<Badge variant={isPriority ? "warning" : "outline"}>{isPriority ? "Priority room" : "Standard room"}</Badge>}
-        />
-
-        <div className="grid min-h-0 flex-1 gap-4 xl:grid-cols-[22rem_minmax(0,1fr)_20rem]">
+        <div className="grid min-h-0 flex-1 gap-4 lg:grid-cols-[22rem_minmax(0,1fr)]">
           <div className="hidden min-h-0 lg:block" data-tour="people">
             <UserListSidebar
               currentUser={username}
@@ -149,7 +140,7 @@ const GeneralChatClient = () => {
                   <UsersRound className="h-4 w-4" aria-hidden="true" />
                   People
                 </Button>
-                <Button variant="outline" size="sm" className="xl:hidden" onClick={() => setIsDetailsOpen(true)}>
+                <Button variant="outline" size="sm" className="lg:hidden" onClick={() => setIsDetailsOpen(true)}>
                   <Info className="h-4 w-4" aria-hidden="true" />
                   Profile
                 </Button>
@@ -197,17 +188,6 @@ const GeneralChatClient = () => {
               </div>
             </div>
           </Card>
-
-          <div className="hidden min-h-0 xl:block">
-            <ChatDetailsPanel
-              title={selectedUser && selectedUser !== username ? selectedUser : "General room"}
-              subtitle={selectedUser && selectedUser !== username ? "Peer insight" : "Workspace overview"}
-              token={token}
-              peerName={selectedUser && selectedUser !== username ? selectedUser : null}
-              room={chatRoom}
-              onVideoCall={joinOrStartCall}
-            />
-          </div>
         </div>
       </PageContainer>
 

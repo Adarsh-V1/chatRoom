@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { CircleUserRound, LayoutDashboard, LogOut, MessageSquareText, Settings2, UsersRound } from "lucide-react";
+import { CircleUserRound, LayoutDashboard, LogOut, Mailbox, Settings2, UsersRound } from "lucide-react";
 import { BrandLogo } from "@/src/components/app/brand-logo";
 import { Badge } from "@/src/components/ui/badge";
 import { Button } from "@/src/components/ui/button";
@@ -25,9 +25,9 @@ interface AppNavProps {
 }
 
 const primaryNavItems = [
-  { label: "Chat", href: "/chat", icon: MessageSquareText },
+  { label: "Inbox", href: "/chat", icon: Mailbox },
   { label: "Groups", href: "/groups", icon: UsersRound },
-  { label: "Settings", href: "/settings", icon: Settings2 },
+  { label: "Account", href: "/profile", icon: CircleUserRound },
 ];
 
 const profileMenuItems = [

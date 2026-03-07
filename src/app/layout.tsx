@@ -5,33 +5,53 @@ import { ConvexClientProvider } from "./ConvexClientProvider";
 import { ThemeProvider } from "./ThemeProvider";
 import { AppShell } from "@/src/features/navigation/AppShell";
 import { AppToaster } from "@/src/components/ui/sonner";
+import { siteDescription, siteKeywords, siteName } from "@/src/features/landing/seo";
 
 const metadataBase = new URL(process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000");
 
 export const metadata: Metadata = {
   metadataBase,
   title: {
-    default: "ConvoLink",
-    template: "%s · ConvoLink",
+    default: siteName,
+    template: `%s · ${siteName}`,
   },
-  description: "A modern team chat workspace powered by Convex",
-  applicationName: "ConvoLink",
+  description: siteDescription,
+  applicationName: siteName,
+  keywords: siteKeywords,
   manifest: "/manifest.webmanifest",
+  formatDetection: {
+    telephone: false,
+    email: false,
+    address: false,
+  },
   icons: {
     icon: "/convolink-mark.svg",
     shortcut: "/convolink-mark.svg",
     apple: "/convolink-mark.svg",
   },
+  robots: {
+    index: true,
+    follow: true,
+    googleBot: {
+      index: true,
+      follow: true,
+      "max-image-preview": "large",
+      "max-snippet": -1,
+      "max-video-preview": -1,
+    },
+  },
   openGraph: {
-    title: "ConvoLink",
-    description: "A modern team chat workspace powered by Convex.",
+    title: siteName,
+    description: siteDescription,
     type: "website",
-    images: [{ url: "/convolink-og.svg", width: 1200, height: 630, alt: "ConvoLink" }],
+    url: "/",
+    siteName,
+    images: [{ url: "/convolink-og.svg", width: 1200, height: 630, alt: siteName }],
   },
   twitter: {
     card: "summary_large_image",
-    title: "ConvoLink",
-    description: "A modern team chat workspace powered by Convex.",
+    title: siteName,
+    description: siteDescription,
     images: ["/convolink-og.svg"],
   },
 };

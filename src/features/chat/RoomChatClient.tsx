@@ -1,16 +1,14 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useMutation, useQuery } from "convex/react";
 import { Info, PhoneCall, UsersRound } from "lucide-react";
-import { useRouter } from "next/navigation";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { api } from "@/convex/_generated/api";
-import type { Id } from "@/convex/_generated/dataModel";
-import { LoadingScreen, PageContainer, PageHeader, PageShell } from "@/src/components/app/page-shell";
+import { LoadingScreen, PageContainer, PageShell } from "@/src/components/app/page-shell";
 import { Badge } from "@/src/components/ui/badge";
 import { Button } from "@/src/components/ui/button";
 import { Card } from "@/src/components/ui/card";
-import { LoginCard } from "@/src/features/auth/LoginCard";
 import { useChatAuth } from "@/src/features/auth/useChatAuth";
 import { ChatDetailsPanel } from "@/src/features/chat/ChatDetailsPanel";
 import { ChatMobileSheet } from "@/src/features/chat/ChatMobileSheet";
@@ -20,25 +18,40 @@ import { OnlineAs } from "@/src/features/chat/OnlineAs";
 import { UserListSidebar } from "@/src/features/chat/UserListSidebar";
 import { useHorizontalSwipe } from "@/src/features/chat/useHorizontalSwipe";
 import { PriorityStarButton } from "@/src/features/focus/PriorityStarButton";
+import { WorkspaceTour } from "@/src/features/onboarding/WorkspaceTour";
+import {
+  buildCallHref,
+  buildConversationRefFromRoom,
+  buildDirectConversationRef,
+  buildGeneralConversationRef,
+} from "@/src/features/workspace/conversations";
 
 interface RoomChatClientProps {
   room: string;
+  peerName?: string | null;
+  conversationTitle?: string;
+  returnTo?: string;
+  avatarUrl?: string | null;
 }
 
-const RoomChatClient = ({ room }: RoomChatClientProps) => {
+const RoomChatClient = ({ room, peerName, conversationTitle, returnTo, avatarUrl }: RoomChatClientProps) => {
   const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
   const auth = useChatAuth();
   const [isDetailsOpen, setIsDetailsOpen] = useState(false);
   const [isUserListOpen, setIsUserListOpen] = useState(false);
-  const generateUploadUrl = useMutation(api.chats.generateUploadUrl);
-  const setMyProfilePicture = useMutation(api.users.setMyProfilePicture);
+  const [tourOpen, setTourOpen] = useState(false);
   const startCall = useMutation(api.calls.startCall);
   const endCall = useMutation(api.calls.endCall);
+  const saveLastVisited = useMutation(api.workspace.saveLastVisited);
 
   const username = auth.name ?? "";
   const token = auth.token ?? "";
+  const resolvedReturnTo = useMemo(() => returnTo ?? pathname ?? "/chat", [pathname, returnTo]);
 
-  const directPeerName = (() => {
+  const directPeerName = useMemo(() => {
+    if (peerName?.trim()) return peerName.trim();
     if (!username || !room) return null;
     const normalized = username.trim().toLowerCase();
     const parts = room.split("-").filter(Boolean);
@@ -46,28 +59,48 @@ const RoomChatClient = ({ room }: RoomChatClientProps) => {
     const hasMe = parts.some((part) => part.toLowerCase() === normalized);
     if (!hasMe) return null;
     return parts.find((part) => part.toLowerCase() !== normalized) ?? null;
-  })();
+  }, [peerName, room, username]);
+
+  const resolvedConversationTitle = useMemo(() => {
+    if (conversationTitle?.trim()) return conversationTitle.trim();
+    if (room === "general") return "General room";
+    if (directPeerName) return directPeerName;
+    return room;
+  }, [conversationTitle, directPeerName, room]);
+  const tourRequested = searchParams.get("tour") === "1" && room === "general";
 
   const activeCall = useQuery(api.calls.getActiveCall, auth.isLoggedIn ? { token, conversationId: room } : "skip");
+
+  useEffect(() => {
+    if (!auth.isLoggedIn || !token || !username) return;
+
+    const ref =
+      room === "general"
+        ? buildGeneralConversationRef()
+        : directPeerName
+          ? buildDirectConversationRef(username, directPeerName)
+          : buildConversationRefFromRoom(room, username);
+
+    if (!ref) return;
+    void saveLastVisited({ token, conversationRef: ref });
+  }, [auth.isLoggedIn, directPeerName, room, saveLastVisited, token, username]);
 
   const joinOrStartCall = async () => {
     if (!auth.isLoggedIn) return;
 
     if (activeCall?.roomId) {
-      router.push(`/call/${activeCall.roomId}`);
+      router.push(buildCallHref(activeCall.roomId, resolvedReturnTo));
       return;
     }
 
     const result = await startCall({ token, conversationId: room });
-    router.push(`/call/${result.roomId}`);
+    router.push(buildCallHref(result.roomId, resolvedReturnTo));
   };
 
   const isCallStarter = Boolean(
     activeCall?.startedByName && auth.name && activeCall.startedByName.trim().toLowerCase() === auth.name.trim().toLowerCase()
   );
 
-  const roomPriority = useQuery(api.priorities.getRoomPriority, auth.isLoggedIn ? { token, room } : "skip");
-  const isPriority = Boolean(roomPriority?.priority);
   const swipeHandlers = useHorizontalSwipe({
     onSwipeLeft: () => setIsUserListOpen(true),
     onSwipeRight: () => setIsDetailsOpen(true),
@@ -78,62 +111,17 @@ const RoomChatClient = ({ room }: RoomChatClientProps) => {
     return <LoadingScreen title="Loading room..." description="Preparing the direct thread, room metadata, and presence." />;
   }
 
-  if (!auth.isLoggedIn) {
-    return (
-      <PageShell>
-        <PageContainer className="flex min-h-[calc(100dvh-8rem)] items-center justify-center">
-          <div className="w-full max-w-xl">
-            <LoginCard
-              title="Join room"
-              subtitle={`Enter ${room} and keep the same short password to return later.`}
-              onGoogleSubmit={auth.loginWithGoogle}
-              onSubmit={async ({ name, password, profileFile }) => {
-                const result = await auth.login({ name, password });
-
-                if (profileFile) {
-                  const uploadUrl = await generateUploadUrl({ token: result.token });
-                  const res = await fetch(uploadUrl, {
-                    method: "POST",
-                    headers: {
-                      "Content-Type": profileFile.type || "application/octet-stream",
-                    },
-                    body: profileFile,
-                  });
-                  if (res.ok) {
-                    const json = (await res.json()) as { storageId: string };
-                    await setMyProfilePicture({
-                      token: result.token,
-                      storageId: json.storageId as Id<"_storage">,
-                    });
-                  }
-                }
-              }}
-            />
-          </div>
-        </PageContainer>
-      </PageShell>
-    );
-  }
-
   return (
     <PageShell className="flex h-[calc(100dvh-var(--app-header-height))] min-h-0 flex-col overflow-hidden">
       <PageContainer className="flex min-h-0 flex-1 flex-col overflow-hidden">
-        <PageHeader
-          eyebrow="Room"
-          title={directPeerName ? `Direct thread with ${directPeerName}` : room}
-          description="This room uses the same theme system, composer, call actions, and responsive drawers as the main chat view."
-          action={<Badge variant={isPriority ? "warning" : "outline"}>{isPriority ? "Priority room" : "Standard room"}</Badge>}
-        />
-
-        <div className="grid min-h-0 flex-1 gap-4 lg:grid-cols-[minmax(0,1fr)_18rem] xl:grid-cols-[minmax(0,1fr)_18rem_20rem]">
-          <div className="hidden min-h-0 lg:block xl:hidden">
+        <div className="grid min-h-0 flex-1 gap-4 lg:grid-cols-[18rem_minmax(0,1fr)]">
+          <div className="hidden min-h-0 lg:block">
             <UserListSidebar
               currentUser={username}
               token={token}
               onSelectUser={(user) => {
                 if (!user || user === username) return;
-                const directRoom = [username.toLowerCase(), user.toLowerCase()].sort().join("-");
-                router.push(`/chat/${directRoom}`);
+                router.push(`/chat/direct/${encodeURIComponent(user)}`);
               }}
               className="h-full min-h-0"
             />
@@ -151,22 +139,33 @@ const RoomChatClient = ({ room }: RoomChatClientProps) => {
                   <UsersRound className="h-4 w-4" aria-hidden="true" />
                   People
                 </Button>
-                <Button variant="outline" size="sm" className="xl:hidden" onClick={() => setIsDetailsOpen(true)}>
+                <Button variant="outline" size="sm" className="lg:hidden" onClick={() => setIsDetailsOpen(true)}>
                   <Info className="h-4 w-4" aria-hidden="true" />
                   Profile
                 </Button>
                 <PriorityStarButton token={token} kind="room" room={room} />
+                {room === "general" ? (
+                  <Button variant="outline" size="sm" onClick={() => setTourOpen(true)}>
+                    Tour
+                  </Button>
+                ) : null}
                 <Button variant="secondary" size="sm" onClick={joinOrStartCall}>
                   <PhoneCall className="h-4 w-4" aria-hidden="true" />
                   {activeCall?.roomId ? "Join call" : "Start call"}
                 </Button>
-                <Badge variant="secondary" className="normal-case tracking-normal text-xs">Room: {room}</Badge>
+                <Badge variant="secondary" className="normal-case tracking-normal text-xs">
+                  {directPeerName ? `Direct thread: ${directPeerName}` : `Room: ${resolvedConversationTitle}`}
+                </Badge>
               </div>
             </div>
 
             {activeCall?.roomId ? (
               <div className="mt-4 flex flex-col gap-3 rounded-[24px] border border-[color:var(--brand-border)] bg-[color:var(--surface-3)] px-4 py-4 sm:flex-row sm:items-center sm:justify-between">
-                <button type="button" onClick={() => router.push(`/call/${activeCall.roomId}`)} className="flex min-w-0 flex-1 items-center justify-between gap-4 text-left">
+                <button
+                  type="button"
+                  onClick={() => router.push(buildCallHref(activeCall.roomId, resolvedReturnTo))}
+                  className="flex min-w-0 flex-1 items-center justify-between gap-4 text-left"
+                >
                   <div className="min-w-0">
                     <div className="text-xs font-semibold uppercase tracking-[0.22em] text-[color:var(--accent-text)]">Active call</div>
                     <div className="truncate text-sm font-semibold text-[color:var(--text-1)]">
@@ -195,17 +194,6 @@ const RoomChatClient = ({ room }: RoomChatClientProps) => {
               <ChatForm token={token} room={room} />
             </div>
           </Card>
-
-          <div className="hidden min-h-0 xl:block">
-            <ChatDetailsPanel
-              title={room}
-              subtitle="Room chat"
-              token={token}
-              peerName={directPeerName}
-              room={room}
-              onVideoCall={joinOrStartCall}
-            />
-          </div>
         </div>
       </PageContainer>
 
@@ -215,8 +203,7 @@ const RoomChatClient = ({ room }: RoomChatClientProps) => {
           token={token}
           onSelectUser={(user) => {
             if (!user || user === username) return;
-            const directRoom = [username.toLowerCase(), user.toLowerCase()].sort().join("-");
-            router.push(`/chat/${directRoom}`);
+            router.push(`/chat/direct/${encodeURIComponent(user)}`);
             setIsUserListOpen(false);
           }}
           className="h-full"
@@ -225,8 +212,9 @@ const RoomChatClient = ({ room }: RoomChatClientProps) => {
 
       <ChatMobileSheet open={isDetailsOpen} onClose={() => setIsDetailsOpen(false)} side="right">
         <ChatDetailsPanel
-          title={room}
+          title={resolvedConversationTitle}
           subtitle="Room chat"
+          avatarUrl={avatarUrl}
           token={token}
           peerName={directPeerName}
           room={room}
@@ -236,6 +224,20 @@ const RoomChatClient = ({ room }: RoomChatClientProps) => {
           }}
         />
       </ChatMobileSheet>
+
+      {room === "general" ? (
+        <WorkspaceTour
+          open={tourOpen || tourRequested}
+          onClose={() => {
+            setTourOpen(false);
+            if (!tourRequested) return;
+            const params = new URLSearchParams(searchParams.toString());
+            params.delete("tour");
+            const nextQuery = params.toString();
+            router.replace(nextQuery ? `${pathname}?${nextQuery}` : pathname);
+          }}
+        />
+      ) : null}
     </PageShell>
   );
 };

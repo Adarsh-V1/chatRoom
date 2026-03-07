@@ -5,7 +5,6 @@ import { useMutation, useQuery } from "convex/react";
 
 import { api } from "@/convex/_generated/api";
 import { clearAuth, loadAuth, saveAuth } from "@/src/features/auth/authStorage";
-import { markTourPending } from "@/src/features/onboarding/tourStorage";
 
 type LoginArgs = {
   name: string;
@@ -97,9 +96,6 @@ export function useChatAuth() {
       const next = { token: result.token, name: result.name };
       saveAuth(next);
       setAuth(next);
-      if (result.isNewUser) {
-        markTourPending(result.name);
-      }
       return result;
     },
     [loginOrRegister]
@@ -120,9 +116,6 @@ export function useChatAuth() {
     const next = { token: json.token, name: json.name };
     saveAuth(next);
     setAuth(next);
-    if (json.isNewUser) {
-      markTourPending(json.name);
-    }
     return { ...next, isNewUser: json.isNewUser } satisfies LoginResponse;
   }, []);
 
